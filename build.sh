@@ -49,6 +49,3 @@ apksigner sign --ks debug.keystore \
 
 echo "打包成功: $(pwd)/${APP_NAME}.apk"
 
-cp -f "${APP_NAME}.apk" /storage/emulated/0/Download/FluxCore/ 2>/dev/null || su -c "cp -f \"$(pwd)/${APP_NAME}.apk\" /storage/emulated/0/Download/FluxCore/"
-cp -rf AndroidManifest.xml res src build.sh debug.keystore /storage/emulated/0/Download/FluxCore/code/ 2>/dev/null || su -c "cp -rf \"$(pwd)/AndroidManifest.xml\" \"$(pwd)/res\" \"$(pwd)/src\" \"$(pwd)/build.sh\" \"$(pwd)/debug.keystore\" /storage/emulated/0/Download/FluxCore/code/"
-echo "已同步 APK 与源码至: /storage/emulated/0/Download/FluxCore/"
