@@ -1,69 +1,61 @@
 package com.mouajmd.fluxcore;
 
-import android.os.Handler;
-import android.os.Looper;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class RootShell {
-    public interface Callback {
-        void onResult(boolean success, String output);
-    }
-
-    private static final Handler MAIN = new Handler(Looper.getMainLooper());
-
-    public static boolean isRooted() {
-        Result r = exec("id");
-        return r.success && r.output.contains("uid=0");
-    }
-
-    public static class Result {
-        public boolean success;
-        public String output;
-        public Result(boolean s, String o) { success = s; output = o; }
-    }
-
-    public static synchronized Result exec(String cmd) {
+    public static String exec(String cmd) {
+        StringBuilder out = new StringBuilder();
         Process p = null;
-        DataOutputStream os = null;
-        BufferedReader br = null;
         try {
             p = Runtime.getRuntime().exec("su");
-            os = new DataOutputStream(p.getOutputStream());
-            os.writeBytes(cmd + "\nexit\n");
+            DataOutputStream os = new DataOutputStream(p.getOutputStream());
+            os.write((cmd + "\nexit\n").getBytes(StandardCharsets.UTF_8));
             os.flush();
-            br = new BufferedReader(new InputStreamReader(p.getInputStream()));
-            StringBuilder sb = new StringBuilder();
+
+            BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8));
             String line;
             while ((line = br.readLine()) != null) {
-                sb.append(line).append("\n");
+                out.append(line).append("\n");
             }
-            int code = p.waitFor();
-            return new Result(code == 0, sb.toString().trim());
-        } catch (Exception e) {
-            return new Result(false, e.getMessage() == null ? "error" : e.getMessage());
+            p.waitFor();
+        } catch (Throwable e) {
+            return "ERR: " + e.getMessage();
         } finally {
-            try { if (os != null) os.close(); } catch (Exception ignored) {}
-            try { if (br != null) br.close(); } catch (Exception ignored) {}
             if (p != null) p.destroy();
         }
+        return out.toString().trim();
     }
 
-    public static void execAsync(final String cmd, final Callback cb) {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                final Result r = exec(cmd);
-                if (cb != null) {
-                    MAIN.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            cb.onResult(r.success, r.output);
-                        }
-                    });
-                }
-            }
-        }).start();
+    public static boolean hasRoot() {
+        String res = exec("id");
+        return res != null && res.contains("uid=0");
+    }
+
+    public static String queryCurrentWifiSsid() {
+        String raw = exec("cmd wifi status 2>/dev/null; dumpsys wifi 2>/dev/null | grep -E 'WifiInfo|mWifiInfo|SSID:' | head -n 15");
+        if (raw == null || raw.isEmpty()) return "";
+
+        Matcher mQuoted = Pattern.compile("SSID:\\s*\"([^\"]+)\"").matcher(raw);
+        while (mQuoted.find()) {
+            String s = mQuoted.group(1).trim();
+            if (!s.isEmpty() && !s.equalsIgnoreCase("<unknown ssid>")) return s;
+        }
+
+        Matcher mUnquoted = Pattern.compile("SSID:\\s*([^,\\s\\n\"<>]+)").matcher(raw);
+        while (mUnquoted.find()) {
+            String s = mUnquoted.group(1).trim();
+            if (!s.isEmpty() && !s.equalsIgnoreCase("null") && !s.equalsIgnoreCase("<unknown")) return s;
+        }
+        return "";
+    }
+
+    public static String queryConnectedBtDevices() {
+        String raw = exec("dumpsys bluetooth_manager 2>/dev/null | grep -iE 'Connected:|mActiveDevice|Device:' | head -n 15");
+        return raw == null ? "" : raw;
     }
 }

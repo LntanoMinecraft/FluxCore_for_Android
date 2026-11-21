@@ -1,770 +1,732 @@
 package com.mouajmd.fluxcore;
 
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.BroadcastReceiver;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Insets;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
-import android.widget.CompoundButton;
+import android.view.WindowInsets;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
-import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.util.List;
 
 public class MainActivity extends Activity {
-    private Md3e t;
+    private Md3e theme;
     private int currentTab = 0;
-    private FrameLayout pageContainer;
+    private LinearLayout pageContainer;
     private TextView[] navItems = new TextView[3];
-    private TextView badgeRoot;
-    private TextView badgeService;
     private TextView fabAdd;
-    private boolean hasRoot = false;
-
-    private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (currentTab == 0) renderTab(0, false);
-        }
-    };
+    private TextView svcChip;
+    private boolean rootOk = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        t = Md3e.of(this);
-        getWindow().setStatusBarColor(t.bg);
-        getWindow().setNavigationBarColor(t.bg);
+        theme = Md3e.of(this);
+        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(Color.TRANSPARENT);
+        if (!theme.isDark) {
+            getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+        }
+
+        rootOk = RootShell.hasRoot();
+        if (rootOk && !FluxService.isRunning) {
+            Intent svc = new Intent(this, FluxService.class);
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc);
+            else startService(svc);
+        }
 
         FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(t.bg);
+        root.setBackgroundColor(theme.bg);
 
         LinearLayout mainCol = new LinearLayout(this);
         mainCol.setOrientation(LinearLayout.VERTICAL);
         root.addView(mainCol, new FrameLayout.LayoutParams(-1, -1));
 
-        mainCol.addView(buildHeader());
+        final View headerView = buildHeader();
+        mainCol.addView(headerView);
 
-        pageContainer = new FrameLayout(this);
-        LinearLayout.LayoutParams pclp = new LinearLayout.LayoutParams(-1, 0, 1f);
-        mainCol.addView(pageContainer, pclp);
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout.LayoutParams sclp = new LinearLayout.LayoutParams(-1, 0, 1f);
+        mainCol.addView(scroll, sclp);
+
+        pageContainer = new LinearLayout(this);
+        pageContainer.setOrientation(LinearLayout.VERTICAL);
+        int pad = Md3e.dp(this, 16);
+        pageContainer.setPadding(pad, Md3e.dp(this, 6), pad, Md3e.dp(this, 96));
+        scroll.addView(pageContainer);
+
+        final View bottomNav = buildBottomNav();
+        mainCol.addView(bottomNav);
 
         fabAdd = new TextView(this);
-        fabAdd.setText("＋ 新建情境");
-        fabAdd.setTextColor(t.onPrimaryContainer);
+        fabAdd.setText("+ 新建情境");
         fabAdd.setTextSize(15);
         fabAdd.setTypeface(null, Typeface.BOLD);
-        fabAdd.setBackground(Md3e.ripple(this, t.primaryContainer, 0x22000000, 22));
-        int fp = Md3e.dp(this, 18);
-        fabAdd.setPadding(fp, Md3e.dp(this, 14), fp, Md3e.dp(this, 14));
+        fabAdd.setTextColor(theme.onPrimaryContainer);
+        fabAdd.setBackground(Md3e.ripple(this, theme.primaryContainer, 0x22000000, 22));
+        fabAdd.setPadding(Md3e.dp(this, 20), Md3e.dp(this, 16), Md3e.dp(this, 20), Md3e.dp(this, 16));
         fabAdd.setElevation(Md3e.dp(this, 6));
-        Md3e.attachSpringTouch(fabAdd);
+        final int baseFabBottomMargin = Md3e.dp(this, 86);
         FrameLayout.LayoutParams flp = new FrameLayout.LayoutParams(-2, -2);
         flp.gravity = Gravity.BOTTOM | Gravity.END;
         flp.rightMargin = Md3e.dp(this, 20);
-        flp.bottomMargin = Md3e.dp(this, 92);
+        flp.bottomMargin = baseFabBottomMargin;
         root.addView(fabAdd, flp);
+        Md3e.attachSpringTouch(fabAdd);
 
         fabAdd.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 RuleEditorDialog.show(MainActivity.this, null, new RuleEditorDialog.OnSavedListener() {
                     @Override
-                    public void onSaved() {
-                        renderTab(0, true);
-                    }
+                    public void onSaved() { renderTab(); }
                 });
             }
         });
 
-        root.addView(buildFloatingNav());
-        setContentView(root);
+        final int baseNavBottomMargin = Md3e.dp(this, 12);
+        root.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+            @Override
+            public WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
+                int topInset = 0;
+                int bottomInset = 0;
+                if (Build.VERSION.SDK_INT >= 30) {
+                    Insets sys = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                    topInset = sys.top;
+                    bottomInset = sys.bottom;
+                } else {
+                    topInset = insets.getSystemWindowInsetTop();
+                    bottomInset = insets.getSystemWindowInsetBottom();
+                }
 
-        checkRootAndService();
-        renderTab(0, true);
+                int hp = Md3e.dp(MainActivity.this, 20);
+                headerView.setPadding(hp, topInset + Md3e.dp(MainActivity.this, 16), hp, Md3e.dp(MainActivity.this, 10));
+
+                LinearLayout.LayoutParams blp = (LinearLayout.LayoutParams) bottomNav.getLayoutParams();
+                int hm = Md3e.dp(MainActivity.this, 16);
+                blp.setMargins(hm, 0, hm, bottomInset + baseNavBottomMargin);
+                bottomNav.setLayoutParams(blp);
+
+                FrameLayout.LayoutParams curFlp = (FrameLayout.LayoutParams) fabAdd.getLayoutParams();
+                curFlp.bottomMargin = bottomInset + baseFabBottomMargin;
+                fabAdd.setLayoutParams(curFlp);
+
+                return insets;
+            }
+        });
+
+        setContentView(root);
+        root.requestApplyInsets();
+        renderTab();
+
+        root.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                updateServiceChip();
+            }
+        }, 600);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        IntentFilter f = new IntentFilter(Engine.ACTION_STATE_CHANGED);
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(stateReceiver, f, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(stateReceiver, f);
-        }
-        updateServiceBadge();
+        updateServiceChip();
     }
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-        try { unregisterReceiver(stateReceiver); } catch (Exception ignored) {}
+    private void updateServiceChip() {
+        if (svcChip == null) return;
+        boolean running = FluxService.isRunning;
+        svcChip.setText(running ? "● 后台监听中" : "● 服务未启动");
+        svcChip.setTextColor(running ? theme.onSecondaryContainer : theme.textSecondary);
+        svcChip.setBackground(Md3e.card(this, running ? theme.secondaryContainer : theme.surfaceHigh, 50));
     }
 
     private View buildHeader() {
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.VERTICAL);
-        int hp = Md3e.dp(this, 20);
-        header.setPadding(hp, Md3e.dp(this, 18), hp, Md3e.dp(this, 10));
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int p = Md3e.dp(this, 20);
+        box.setPadding(p, Md3e.dp(this, 44), p, Md3e.dp(this, 10));
 
         TextView title = new TextView(this);
         title.setText("流枢 · FluxCore");
-        title.setTextSize(28);
+        title.setTextSize(26);
         title.setTypeface(null, Typeface.BOLD);
-        title.setTextColor(t.textPrimary);
-        header.addView(title);
+        title.setTextColor(theme.textPrimary);
+        box.addView(title);
 
-        LinearLayout pills = new LinearLayout(this);
-        pills.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(-1, -2);
-        plp.topMargin = Md3e.dp(this, 10);
+        LinearLayout chips = new LinearLayout(this);
+        chips.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-1, -2);
+        clp.topMargin = Md3e.dp(this, 8);
 
-        badgeRoot = makePillBadge("检测 Root 权限...", t.surfaceHigh, t.textSecondary);
-        badgeService = makePillBadge("监听引擎：未启动", t.surfaceHigh, t.textSecondary);
+        chips.addView(statusChip(rootOk ? "● Root 已就绪" : "● 未获取 Root", rootOk));
+        View spacer = new View(this);
+        chips.addView(spacer, new LinearLayout.LayoutParams(Md3e.dp(this, 8), 1));
+        svcChip = statusChip(FluxService.isRunning ? "● 后台监听中" : "● 服务未启动", FluxService.isRunning);
+        chips.addView(svcChip);
 
-        LinearLayout.LayoutParams b1lp = new LinearLayout.LayoutParams(-2, -2);
-        b1lp.rightMargin = Md3e.dp(this, 8);
-        pills.addView(badgeRoot, b1lp);
-        pills.addView(badgeService);
-
-        badgeService.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (!hasRoot) {
-                    Toast.makeText(MainActivity.this, "请先授予 Root 权限", Toast.LENGTH_SHORT).show();
-                    checkRootAndService();
-                    return;
-                }
-                Intent svc = new Intent(MainActivity.this, CoreService.class);
-                if (CoreService.running) {
-                    stopService(svc);
-                    CoreService.running = false;
-                } else {
-                    if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc);
-                    else startService(svc);
-                    CoreService.running = true;
-                }
-                Md3e.pulse(badgeService);
-                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-                    @Override
-                    public void run() { updateServiceBadge(); }
-                }, 250);
-            }
-        });
-
-        header.addView(pills, plp);
-        return header;
+        box.addView(chips, clp);
+        return box;
     }
 
-    private TextView makePillBadge(String text, int bg, int fg) {
+    private TextView statusChip(String label, boolean active) {
         TextView tv = new TextView(this);
-        tv.setText(text);
+        tv.setText(label);
         tv.setTextSize(12);
         tv.setTypeface(null, Typeface.BOLD);
-        tv.setTextColor(fg);
-        tv.setBackground(Md3e.ripple(this, bg, 0x22000000, 50));
+        tv.setTextColor(active ? theme.onSecondaryContainer : theme.textSecondary);
+        tv.setBackground(Md3e.card(this, active ? theme.secondaryContainer : theme.surfaceHigh, 50));
         tv.setPadding(Md3e.dp(this, 12), Md3e.dp(this, 6), Md3e.dp(this, 12), Md3e.dp(this, 6));
-        Md3e.attachSpringTouch(tv);
         return tv;
     }
 
-    private void checkRootAndService() {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                final boolean ok = RootShell.isRooted();
-                new Handler(Looper.getMainLooper()).post(new Runnable() {
-                    @Override
-                    public void run() {
-                        hasRoot = ok;
-                        if (ok) {
-                            badgeRoot.setText("● Root 已就绪");
-                            badgeRoot.setTextColor(t.onPrimaryContainer);
-                            badgeRoot.setBackground(Md3e.ripple(MainActivity.this, t.primaryContainer, 0x22000000, 50));
-                            if (!CoreService.running) {
-                                Intent svc = new Intent(MainActivity.this, CoreService.class);
-                                if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc);
-                                else startService(svc);
-                                CoreService.running = true;
-                            }
-                        } else {
-                            badgeRoot.setText("○ 未获取 Root");
-                            badgeRoot.setTextColor(t.onTertiaryContainer);
-                            badgeRoot.setBackground(Md3e.ripple(MainActivity.this, t.tertiaryContainer, 0x22000000, 50));
-                        }
-                        updateServiceBadge();
-                    }
-                });
-            }
-        }).start();
-    }
-
-    private void updateServiceBadge() {
-        if (CoreService.running) {
-            badgeService.setText("● 后台监听中");
-            badgeService.setTextColor(t.onSecondaryContainer);
-            badgeService.setBackground(Md3e.ripple(this, t.secondaryContainer, 0x22000000, 50));
-        } else {
-            badgeService.setText("○ 点击启动监听");
-            badgeService.setTextColor(t.textSecondary);
-            badgeService.setBackground(Md3e.ripple(this, t.surfaceHigh, 0x22000000, 50));
-        }
-    }
-
-    private View buildFloatingNav() {
+    private View buildBottomNav() {
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setBackground(Md3e.card(this, t.surfaceHigh, 50));
-        bar.setElevation(Md3e.dp(this, 8));
-        int p = Md3e.dp(this, 6);
+        bar.setBackground(Md3e.card(this, theme.surfaceHigh, 28));
+        int p = Md3e.dp(this, 8);
         bar.setPadding(p, p, p, p);
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(-1, -2);
+        int m = Md3e.dp(this, 16);
+        blp.setMargins(m, 0, m, Md3e.dp(this, 12));
 
-        String[] labels = {"情境", "控制台", "关于"};
+        String[] labels = {"情境", "控制台", "设置"};
         for (int i = 0; i < 3; i++) {
             final int idx = i;
-            TextView item = new TextView(this);
-            item.setText(labels[i]);
-            item.setGravity(Gravity.CENTER);
-            item.setTextSize(14);
-            item.setTypeface(null, Typeface.BOLD);
-            item.setPadding(0, Md3e.dp(this, 12), 0, Md3e.dp(this, 12));
-            Md3e.attachSpringTouch(item);
-            item.setOnClickListener(new View.OnClickListener() {
+            TextView tv = new TextView(this);
+            tv.setText(labels[i]);
+            tv.setGravity(Gravity.CENTER);
+            tv.setTextSize(14);
+            tv.setTypeface(null, Typeface.BOLD);
+            tv.setPadding(0, Md3e.dp(this, 12), 0, Md3e.dp(this, 12));
+            Md3e.attachSpringTouch(tv);
+            tv.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    if (currentTab != idx) renderTab(idx, true);
+                    currentTab = idx;
+                    renderTab();
                 }
             });
-            navItems[i] = item;
-            bar.addView(item, new LinearLayout.LayoutParams(0, -2, 1f));
+            navItems[i] = tv;
+            bar.addView(tv, new LinearLayout.LayoutParams(0, -2, 1f));
         }
-
-        FrameLayout.LayoutParams blp = new FrameLayout.LayoutParams(-1, -2);
-        blp.gravity = Gravity.BOTTOM;
-        int m = Md3e.dp(this, 20);
-        blp.setMargins(m, 0, m, Md3e.dp(this, 18));
         bar.setLayoutParams(blp);
         return bar;
     }
 
-    private void renderTab(int idx, boolean animate) {
-        currentTab = idx;
+    private void renderTab() {
         for (int i = 0; i < 3; i++) {
-            if (i == idx) {
-                navItems[i].setTextColor(t.onPrimary);
-                navItems[i].setBackground(Md3e.card(this, t.primary, 50));
+            if (i == currentTab) {
+                navItems[i].setTextColor(theme.onPrimary);
+                navItems[i].setBackground(Md3e.card(this, theme.primary, 22));
             } else {
-                navItems[i].setTextColor(t.textSecondary);
+                navItems[i].setTextColor(theme.textSecondary);
                 navItems[i].setBackgroundColor(Color.TRANSPARENT);
             }
         }
-        fabAdd.setVisibility(idx == 0 ? View.VISIBLE : View.GONE);
-
+        fabAdd.setVisibility(currentTab == 0 ? View.VISIBLE : View.GONE);
         pageContainer.removeAllViews();
-        ScrollView scroll = new ScrollView(this);
-        scroll.setClipToPadding(false);
-        scroll.setPadding(Md3e.dp(this, 20), Md3e.dp(this, 6), Md3e.dp(this, 20), Md3e.dp(this, 150));
 
-        LinearLayout content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        scroll.addView(content);
-        pageContainer.addView(scroll, new FrameLayout.LayoutParams(-1, -1));
-
-        if (idx == 0) buildScenariosPage(content, animate);
-        else if (idx == 1) buildConsolePage(content, animate);
-        else buildAboutPage(content, animate);
+        if (currentTab == 0) renderRulesPage();
+        else if (currentTab == 1) renderConsolePage();
+        else renderSettingsPage();
     }
 
-    private void buildScenariosPage(LinearLayout container, boolean animate) {
-        List<Rule> rules = RuleStore.load(this);
+    private void renderRulesPage() {
+        pageContainer.removeAllViews();
+        final List<Rule> rules = RuleStore.load(this);
         if (rules.isEmpty()) {
-            TextView empty = new TextView(this);
-            empty.setText("暂无情境规则，点击右下角「＋ 新建情境」开始");
-            empty.setTextColor(t.textSecondary);
+            LinearLayout empty = new LinearLayout(this);
+            empty.setOrientation(LinearLayout.VERTICAL);
             empty.setGravity(Gravity.CENTER);
-            empty.setPadding(0, Md3e.dp(this, 80), 0, 0);
-            container.addView(empty);
+            empty.setBackground(Md3e.card(this, theme.surfaceLow, 26));
+            int p = Md3e.dp(this, 32);
+            empty.setPadding(p, p, p, p);
+
+            TextView t1 = new TextView(this);
+            t1.setText("尚未创建任何自动化情境");
+            t1.setTextSize(17);
+            t1.setTypeface(null, Typeface.BOLD);
+            t1.setTextColor(theme.textPrimary);
+            t1.setGravity(Gravity.CENTER);
+
+            TextView t2 = new TextView(this);
+            t2.setText(RuleStore.isAdvancedMode(this)
+                    ? "点击右下角「+ 新建情境」开始配置（进阶模式已开启）"
+                    : "点击右下角「+ 新建情境」开始配置\n需多应用/指定网络/多条件触发可在「设置」开启进阶模式");
+            t2.setTextSize(13);
+            t2.setTextColor(theme.textSecondary);
+            t2.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+            lp.topMargin = Md3e.dp(this, 8);
+
+            empty.addView(t1);
+            empty.addView(t2, lp);
+            pageContainer.addView(empty);
+            Md3e.popIn(empty, 0);
             return;
         }
 
         for (int i = 0; i < rules.size(); i++) {
             final Rule r = rules.get(i);
+            final boolean active = ActionExecutor.isActive(r.id);
+
             LinearLayout card = new LinearLayout(this);
             card.setOrientation(LinearLayout.VERTICAL);
-            card.setBackground(Md3e.ripple(this, r.active ? t.primaryContainer : t.surface, 0x18888888, 28));
-            int cp = Md3e.dp(this, 18);
-            card.setPadding(cp, cp, cp, cp);
+            card.setBackground(Md3e.ripple(this, active ? theme.primaryContainer : theme.surfaceLow, 0x22888888, 26));
+            int p = Md3e.dp(this, 18);
+            card.setPadding(p, p, p, p);
             LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-1, -2);
-            clp.bottomMargin = Md3e.dp(this, 14);
-            Md3e.attachSpringTouch(card);
+            clp.bottomMargin = Md3e.dp(this, 12);
 
-            LinearLayout topRow = new LinearLayout(this);
-            topRow.setOrientation(LinearLayout.HORIZONTAL);
-            topRow.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout top = new LinearLayout(this);
+            top.setOrientation(LinearLayout.HORIZONTAL);
+            top.setGravity(Gravity.CENTER_VERTICAL);
 
-            TextView tvName = new TextView(this);
-            tvName.setText(r.name);
-            tvName.setTextSize(18);
-            tvName.setTypeface(null, Typeface.BOLD);
-            tvName.setTextColor(r.active ? t.onPrimaryContainer : t.textPrimary);
-            topRow.addView(tvName, new LinearLayout.LayoutParams(0, -2, 1f));
+            TextView tvTitle = new TextView(this);
+            tvTitle.setText(r.name);
+            tvTitle.setTextSize(18);
+            tvTitle.setTypeface(null, Typeface.BOLD);
+            tvTitle.setTextColor(active ? theme.onPrimaryContainer : theme.textPrimary);
+            top.addView(tvTitle, new LinearLayout.LayoutParams(0, -2, 1f));
 
-            Switch sw = new Switch(this);
+            final Switch sw = new Switch(this);
             sw.setChecked(r.enabled);
-            sw.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-                @Override
-                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                    r.enabled = isChecked;
-                    RuleStore.upsert(MainActivity.this, r);
-                }
-            });
-            topRow.addView(sw);
-            card.addView(topRow);
-
-            TextView tvDesc = new TextView(this);
-            tvDesc.setText(buildRuleSummary(r));
-            tvDesc.setTextSize(13);
-            tvDesc.setTextColor(r.active ? t.onPrimaryContainer : t.textSecondary);
-            LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(-1, -2);
-            dlp.topMargin = Md3e.dp(this, 6);
-            dlp.bottomMargin = Md3e.dp(this, 14);
-            card.addView(tvDesc, dlp);
-
-            LinearLayout bottomRow = new LinearLayout(this);
-            bottomRow.setOrientation(LinearLayout.HORIZONTAL);
-            bottomRow.setGravity(Gravity.CENTER_VERTICAL);
-
-            final TextView btnExec = new TextView(this);
-            if (r.active) {
-                btnExec.setText("■ 运行中 · 点击还原");
-                btnExec.setTextColor(t.onPrimary);
-                btnExec.setBackground(Md3e.ripple(this, t.primary, 0x33FFFFFF, 50));
-            } else {
-                btnExec.setText("▶ 主动触发");
-                btnExec.setTextColor(t.onSecondaryContainer);
-                btnExec.setBackground(Md3e.ripple(this, t.secondaryContainer, 0x22000000, 50));
-            }
-            btnExec.setTextSize(13);
-            btnExec.setTypeface(null, Typeface.BOLD);
-            btnExec.setPadding(Md3e.dp(this, 16), Md3e.dp(this, 9), Md3e.dp(this, 16), Md3e.dp(this, 9));
-            Md3e.attachSpringTouch(btnExec);
-
-            btnExec.setOnClickListener(new View.OnClickListener() {
+            sw.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    Md3e.pulse(btnExec);
-                    if (r.active) {
-                        Engine.revert(MainActivity.this, r, new Runnable() {
-                            @Override
-                            public void run() {
-                                Toast.makeText(MainActivity.this, "已还原：" + r.name, Toast.LENGTH_SHORT).show();
-                            }
-                        });
-                    } else {
-                        btnExec.setText("✓ 已执行");
-                        Engine.apply(MainActivity.this, r, new Runnable() {
-                            @Override
-                            public void run() {
-                                Toast.makeText(MainActivity.this, "已触发：" + r.name, Toast.LENGTH_SHORT).show();
-                                if (!r.hasStatefulAction()) {
-                                    new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            btnExec.setText("▶ 主动触发");
-                                        }
-                                    }, 1200);
-                                }
-                            }
-                        });
+                    r.enabled = sw.isChecked();
+                    RuleStore.upsert(MainActivity.this, r);
+                    if (!r.enabled) {
+                        ActionExecutor.deactivate(MainActivity.this, r);
+                        renderRulesPage();
                     }
                 }
             });
-            bottomRow.addView(btnExec);
+            top.addView(sw);
+            card.addView(top);
 
-            View spacer = new View(this);
-            bottomRow.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1f));
+            TextView tvTrig = new TextView(this);
+            tvTrig.setText("触发：" + r.describeTrigger());
+            tvTrig.setTextSize(13);
+            tvTrig.setTextColor(active ? theme.onPrimaryContainer : theme.textSecondary);
+            LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(-1, -2);
+            tlp.topMargin = Md3e.dp(this, 6);
+            card.addView(tvTrig, tlp);
+
+            TextView tvAct = new TextView(this);
+            tvAct.setText("动作：" + r.describeActions());
+            tvAct.setTextSize(13);
+            tvAct.setTextColor(active ? theme.onPrimaryContainer : theme.textSecondary);
+            LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(-1, -2);
+            alp.topMargin = Md3e.dp(this, 4);
+            card.addView(tvAct, alp);
+
+            LinearLayout bar = new LinearLayout(this);
+            bar.setOrientation(LinearLayout.HORIZONTAL);
+            bar.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(-1, -2);
+            blp.topMargin = Md3e.dp(this, 14);
+
+            TextView btnTrigger = new TextView(this);
+            btnTrigger.setText(active ? "■ 还原状态" : "▶ 主动触发");
+            btnTrigger.setTextSize(13);
+            btnTrigger.setTypeface(null, Typeface.BOLD);
+            btnTrigger.setTextColor(active ? theme.onPrimary : theme.onSecondaryContainer);
+            btnTrigger.setBackground(Md3e.ripple(this, active ? theme.primary : theme.secondaryContainer, 0x22000000, 50));
+            btnTrigger.setPadding(Md3e.dp(this, 16), Md3e.dp(this, 9), Md3e.dp(this, 16), Md3e.dp(this, 9));
+            Md3e.attachSpringTouch(btnTrigger);
+            btnTrigger.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (ActionExecutor.isActive(r.id)) {
+                                ActionExecutor.deactivate(MainActivity.this, r);
+                            } else {
+                                ActionExecutor.activate(MainActivity.this, r);
+                            }
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() { renderRulesPage(); }
+                            });
+                        }
+                    }).start();
+                }
+            });
+            bar.addView(btnTrigger);
+
+            bar.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
 
             TextView btnDel = new TextView(this);
             btnDel.setText("删除");
-            btnDel.setTextSize(12);
-            btnDel.setTextColor(t.textSecondary);
-            btnDel.setPadding(Md3e.dp(this, 10), Md3e.dp(this, 8), Md3e.dp(this, 6), Md3e.dp(this, 8));
+            btnDel.setTextSize(13);
+            btnDel.setTextColor(theme.textSecondary);
+            btnDel.setPadding(Md3e.dp(this, 12), Md3e.dp(this, 8), Md3e.dp(this, 12), Md3e.dp(this, 8));
             btnDel.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    new AlertDialog.Builder(MainActivity.this)
-                            .setTitle("删除情境")
-                            .setMessage("确定删除「" + r.name + "」吗？")
-                            .setPositiveButton("删除", new DialogInterface.OnClickListener() {
-                                @Override
-                                public void onClick(DialogInterface dialog, int which) {
-                                    RuleStore.delete(MainActivity.this, r.id);
-                                    renderTab(0, false);
-                                }
-                            })
-                            .setNegativeButton("取消", null)
-                            .show();
+                    ActionExecutor.deactivate(MainActivity.this, r);
+                    RuleStore.delete(MainActivity.this, r.id);
+                    renderRulesPage();
                 }
             });
-            bottomRow.addView(btnDel);
+            bar.addView(btnDel);
 
-            card.addView(bottomRow);
-
+            card.addView(bar, blp);
             card.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     RuleEditorDialog.show(MainActivity.this, r, new RuleEditorDialog.OnSavedListener() {
                         @Override
-                        public void onSaved() {
-                            renderTab(0, false);
-                        }
+                        public void onSaved() { renderRulesPage(); }
                     });
                 }
             });
 
-            container.addView(card, clp);
-            if (animate) Md3e.popIn(card, i * 45L);
+            pageContainer.addView(card, clp);
+            Md3e.popIn(card, i * 45L);
         }
     }
 
-    private String buildRuleSummary(Rule r) {
-        StringBuilder sb = new StringBuilder();
-        switch (r.triggerType) {
-            case Rule.TRIG_MANUAL: sb.append("触发：仅手动主动触发"); break;
-            case Rule.TRIG_APP: sb.append("触发：").append(r.triggerOn ? "打开 " : "退出 ").append(r.triggerPkg); break;
-            case Rule.TRIG_CHARGER: sb.append("触发：").append(r.triggerOn ? "连接充电器" : "断开充电器"); break;
-            case Rule.TRIG_SCREEN: sb.append("触发：").append(r.triggerOn ? "屏幕点亮" : "屏幕关闭"); break;
-            case Rule.TRIG_WIFI: sb.append("触发：").append(r.triggerOn ? "连接 Wi-Fi" : "断开 Wi-Fi"); break;
-            case Rule.TRIG_BT: sb.append("触发：").append(r.triggerOn ? "连接蓝牙" : "断开蓝牙"); break;
-        }
-        sb.append("\n动作：");
-        int count = 0;
-        if (!r.killPkgs.isEmpty()) { sb.append("强停 ").append(r.killPkgs.size()).append(" 个应用  "); count++; }
-        if (r.dndMode >= 0) { sb.append("勿扰调节  "); count++; }
-        if (r.refreshRate > 0) { sb.append(r.refreshRate).append("Hz  "); count++; }
-        if (r.brightness >= 0) { sb.append("亮度 ").append(r.brightness).append("  "); count++; }
-        if (r.wifiAction >= 0) { sb.append(r.wifiAction == 1 ? "开Wi-Fi  " : "关Wi-Fi  "); count++; }
-        if (!r.customCmd.trim().isEmpty()) { sb.append("自定义Shell"); count++; }
-        if (count == 0) sb.append("未配置具体动作");
-        return sb.toString();
-    }
+    private void renderConsolePage() {
+        pageContainer.removeAllViews();
+        LinearLayout cleanCard = new LinearLayout(this);
+        cleanCard.setOrientation(LinearLayout.VERTICAL);
+        cleanCard.setBackground(Md3e.card(this, theme.primaryContainer, 26));
+        int p = Md3e.dp(this, 20);
+        cleanCard.setPadding(p, p, p, p);
 
-    private void buildConsolePage(LinearLayout container, boolean animate) {
-        LinearLayout cleanCard = makeBentoCard(t.primaryContainer, 28);
-        TextView cTitle = new TextView(this);
-        cTitle.setText("一键深度后台净化");
-        cTitle.setTextSize(19);
-        cTitle.setTypeface(null, Typeface.BOLD);
-        cTitle.setTextColor(t.onPrimaryContainer);
-        cleanCard.addView(cTitle);
+        TextView t1 = new TextView(this);
+        t1.setText("一键深度后台净化");
+        t1.setTextSize(19);
+        t1.setTypeface(null, Typeface.BOLD);
+        t1.setTextColor(theme.onPrimaryContainer);
+        cleanCard.addView(t1);
 
-        TextView cSub = new TextView(this);
-        cSub.setText("强行停止所有非白名单第三方后台应用并释放内核缓存");
-        cSub.setTextSize(13);
-        cSub.setTextColor(t.onPrimaryContainer);
-        LinearLayout.LayoutParams cslp = new LinearLayout.LayoutParams(-1, -2);
-        cslp.topMargin = Md3e.dp(this, 4);
-        cslp.bottomMargin = Md3e.dp(this, 14);
-        cleanCard.addView(cSub, cslp);
+        TextView t2 = new TextView(this);
+        t2.setText("强行停止所有第三方后台进程并释放系统页面缓存");
+        t2.setTextSize(13);
+        t2.setTextColor(theme.onPrimaryContainer);
+        LinearLayout.LayoutParams lp2 = new LinearLayout.LayoutParams(-1, -2);
+        lp2.topMargin = Md3e.dp(this, 6);
+        cleanCard.addView(t2, lp2);
 
-        final TextView btnClean = new TextView(this);
-        btnClean.setText("立即清理释放");
-        btnClean.setTextColor(t.onPrimary);
-        btnClean.setTypeface(null, Typeface.BOLD);
+        TextView btnClean = new TextView(this);
+        btnClean.setText("立即执行净化");
         btnClean.setGravity(Gravity.CENTER);
-        btnClean.setBackground(Md3e.ripple(this, t.primary, 0x33FFFFFF, 50));
-        btnClean.setPadding(0, Md3e.dp(this, 12), 0, Md3e.dp(this, 12));
+        btnClean.setTextColor(theme.onPrimary);
+        btnClean.setTypeface(null, Typeface.BOLD);
+        btnClean.setBackground(Md3e.ripple(this, theme.primary, 0x33FFFFFF, 50));
+        btnClean.setPadding(0, Md3e.dp(this, 13), 0, Md3e.dp(this, 13));
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(-1, -2);
+        blp.topMargin = Md3e.dp(this, 14);
+        cleanCard.addView(btnClean, blp);
         Md3e.attachSpringTouch(btnClean);
-        cleanCard.addView(btnClean);
 
         btnClean.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Md3e.pulse(btnClean);
-                btnClean.setText("正在清理...");
+                Toast.makeText(MainActivity.this, "正在净化后台...", Toast.LENGTH_SHORT).show();
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        PackageManager pm = getPackageManager();
-                        List<ApplicationInfo> apps = pm.getInstalledApplications(0);
-                        StringBuilder sb = new StringBuilder();
-                        int n = 0;
-                        for (ApplicationInfo ai : apps) {
-                            if ((ai.flags & ApplicationInfo.FLAG_SYSTEM) == 0
-                                    && !ai.packageName.equals(getPackageName())) {
-                                sb.append("am force-stop ").append(ai.packageName).append(";\n");
-                                n++;
-                            }
-                        }
-                        sb.append("sync && echo 3 > /proc/sys/vm/drop_caches;\n");
-                        RootShell.exec(sb.toString());
-                        final int killed = n;
-                        new Handler(Looper.getMainLooper()).post(new Runnable() {
+                        ActionExecutor.cleanAllBackground(MainActivity.this);
+                        runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                btnClean.setText("✓ 已净化 " + killed + " 个应用");
-                                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-                                    @Override
-                                    public void run() { btnClean.setText("立即清理释放"); }
-                                }, 1800);
+                                Toast.makeText(MainActivity.this, "后台净化完成", Toast.LENGTH_SHORT).show();
                             }
                         });
                     }
                 }).start();
             }
         });
-        container.addView(cleanCard);
-        if (animate) Md3e.popIn(cleanCard, 0);
+        pageContainer.addView(cleanCard);
+        Md3e.popIn(cleanCard, 0);
 
-        LinearLayout dndCard = makeBentoCard(t.surface, 28);
-        dndCard.addView(bentoTitle("勿扰模式快捷控制"));
-        LinearLayout dndRow = new LinearLayout(this);
-        dndRow.setOrientation(LinearLayout.HORIZONTAL);
-        String[] dndNames = {"关闭勿扰", "仅重要", "完全静音"};
-        final String[] dndCmds = {
-                "cmd notification set_dnd off",
-                "cmd notification set_dnd priority",
-                "cmd notification set_dnd total"
-        };
-        for (int i = 0; i < 3; i++) {
-            final int k = i;
-            TextView pill = makeActionPill(dndNames[i]);
-            LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(0, -2, 1f);
-            if (i < 2) plp.rightMargin = Md3e.dp(this, 8);
-            pill.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    Md3e.pulse(v);
-                    RootShell.execAsync(dndCmds[k], null);
-                    Toast.makeText(MainActivity.this, "勿扰已切换：" + dndNames[k], Toast.LENGTH_SHORT).show();
-                }
-            });
-            dndRow.addView(pill, plp);
-        }
-        dndCard.addView(dndRow);
-        container.addView(dndCard);
-        if (animate) Md3e.popIn(dndCard, 50);
+        LinearLayout shellCard = new LinearLayout(this);
+        shellCard.setOrientation(LinearLayout.VERTICAL);
+        shellCard.setBackground(Md3e.card(this, theme.surfaceLow, 26));
+        shellCard.setPadding(p, p, p, p);
+        LinearLayout.LayoutParams sclp = new LinearLayout.LayoutParams(-1, -2);
+        sclp.topMargin = Md3e.dp(this, 14);
 
-        LinearLayout hzCard = makeBentoCard(t.surface, 28);
-        hzCard.addView(bentoTitle("屏幕刷新率锁定"));
-        LinearLayout hzRow = new LinearLayout(this);
-        hzRow.setOrientation(LinearLayout.HORIZONTAL);
-        final int[] hzs = {60, 90, 120, 0};
-        String[] hzLabels = {"60Hz", "90Hz", "120Hz", "恢复默认"};
-        for (int i = 0; i < 4; i++) {
-            final int k = i;
-            TextView pill = makeActionPill(hzLabels[i]);
-            LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(0, -2, 1f);
-            if (i < 3) plp.rightMargin = Md3e.dp(this, 6);
-            pill.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    Md3e.pulse(v);
-                    String c = hzs[k] == 0
-                            ? "settings delete system min_refresh_rate; settings delete system peak_refresh_rate"
-                            : "settings put system min_refresh_rate " + hzs[k] + "; settings put system peak_refresh_rate " + hzs[k];
-                    RootShell.execAsync(c, null);
-                    Toast.makeText(MainActivity.this, "刷新率已设为：" + hzLabels[k], Toast.LENGTH_SHORT).show();
-                }
-            });
-            hzRow.addView(pill, plp);
-        }
-        hzCard.addView(hzRow);
-        container.addView(hzCard);
-        if (animate) Md3e.popIn(hzCard, 100);
+        TextView st1 = new TextView(this);
+        st1.setText("快捷 Root Shell 终端");
+        st1.setTextSize(17);
+        st1.setTypeface(null, Typeface.BOLD);
+        st1.setTextColor(theme.textPrimary);
+        shellCard.addView(st1);
 
-        LinearLayout brCard = makeBentoCard(t.surface, 28);
-        final TextView brTitle = bentoTitle("手动屏幕亮度调节");
-        brCard.addView(brTitle);
-        SeekBar sb = new SeekBar(this);
-        sb.setMax(255);
-        sb.setProgress(128);
-        sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (fromUser) {
-                    int val = Math.max(5, progress);
-                    brTitle.setText("手动屏幕亮度调节 (" + val + ")");
-                    RootShell.execAsync("settings put system screen_brightness_mode 0; settings put system screen_brightness " + val, null);
-                }
-            }
-            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override public void onStopTrackingTouch(SeekBar seekBar) {}
-        });
-        brCard.addView(sb);
-        container.addView(brCard);
-        if (animate) Md3e.popIn(brCard, 150);
-
-        LinearLayout shCard = makeBentoCard(t.surface, 28);
-        shCard.addView(bentoTitle("快捷 Root Shell 终端"));
-        final EditText etShell = new EditText(this);
-        etShell.setHint("输入 su 命令，例如：dumpsys battery");
-        etShell.setHintTextColor(t.textSecondary);
-        etShell.setTextColor(t.textPrimary);
-        etShell.setTextSize(13);
-        etShell.setBackground(Md3e.card(this, t.surfaceHigh, 16));
-        int sp = Md3e.dp(this, 12);
-        etShell.setPadding(sp, sp, sp, sp);
-        shCard.addView(etShell);
+        final EditText etCmd = new EditText(this);
+        etCmd.setHint("输入 su 命令，例如: dumpsys battery");
+        etCmd.setHintTextColor(theme.textSecondary);
+        etCmd.setTextColor(theme.textPrimary);
+        etCmd.setTextSize(13);
+        etCmd.setBackground(Md3e.card(this, theme.surfaceHigh, 16));
+        int ep = Md3e.dp(this, 12);
+        etCmd.setPadding(ep, ep, ep, ep);
+        LinearLayout.LayoutParams elp = new LinearLayout.LayoutParams(-1, -2);
+        elp.topMargin = Md3e.dp(this, 10);
+        shellCard.addView(etCmd, elp);
 
         final TextView tvOut = new TextView(this);
-        tvOut.setTextColor(t.textSecondary);
+        tvOut.setText("等待执行指令...");
         tvOut.setTextSize(12);
-        tvOut.setVisibility(View.GONE);
+        tvOut.setTypeface(Typeface.MONOSPACE);
+        tvOut.setTextColor(theme.textSecondary);
         LinearLayout.LayoutParams olp = new LinearLayout.LayoutParams(-1, -2);
-        olp.topMargin = Md3e.dp(this, 8);
-        shCard.addView(tvOut, olp);
+        olp.topMargin = Md3e.dp(this, 10);
 
-        TextView btnRun = makeActionPill("执行命令");
+        TextView btnRun = new TextView(this);
+        btnRun.setText("运行命令");
+        btnRun.setGravity(Gravity.CENTER);
+        btnRun.setTextColor(theme.onSecondaryContainer);
+        btnRun.setTypeface(null, Typeface.BOLD);
+        btnRun.setBackground(Md3e.ripple(this, theme.secondaryContainer, 0x22000000, 50));
+        btnRun.setPadding(0, Md3e.dp(this, 12), 0, Md3e.dp(this, 12));
         LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(-1, -2);
         rlp.topMargin = Md3e.dp(this, 10);
+        shellCard.addView(btnRun, rlp);
+        shellCard.addView(tvOut, olp);
+        Md3e.attachSpringTouch(btnRun);
+
         btnRun.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                String c = etShell.getText().toString().trim();
+                final String c = etCmd.getText().toString().trim();
                 if (c.isEmpty()) return;
-                Md3e.pulse(v);
-                RootShell.execAsync(c, new RootShell.Callback() {
+                tvOut.setText("执行中...");
+                new Thread(new Runnable() {
                     @Override
-                    public void onResult(boolean success, String output) {
-                        tvOut.setVisibility(View.VISIBLE);
-                        tvOut.setText(output.isEmpty() ? "(执行完成，无输出)" : output);
+                    public void run() {
+                        final String res = RootShell.exec(c);
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                tvOut.setText(res.isEmpty() ? "(无输出 / 执行成功)" : res);
+                            }
+                        });
                     }
-                });
+                }).start();
             }
         });
-        shCard.addView(btnRun, rlp);
-        container.addView(shCard);
-        if (animate) Md3e.popIn(shCard, 200);
+
+        pageContainer.addView(shellCard, sclp);
+        Md3e.popIn(shellCard, 60);
     }
 
-    private void buildAboutPage(LinearLayout container, boolean animate) {
-        LinearLayout hero = makeBentoCard(t.primaryContainer, 28);
-        TextView appName = new TextView(this);
-        appName.setText("流枢 · FluxCore");
-        appName.setTextSize(24);
-        appName.setTypeface(null, Typeface.BOLD);
-        appName.setTextColor(t.onPrimaryContainer);
-        hero.addView(appName);
+    private void renderSettingsPage() {
+        pageContainer.removeAllViews();
+        int p = Md3e.dp(this, 20);
+        boolean advOn = RuleStore.isAdvancedMode(this);
 
-        TextView ver = new TextView(this);
-        ver.setText("v1.0.0 · 原生 Root 事件驱动自动化与系统控制中枢");
-        ver.setTextSize(13);
-        ver.setTextColor(t.onPrimaryContainer);
-        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(-1, -2);
-        vlp.topMargin = Md3e.dp(this, 6);
-        hero.addView(ver, vlp);
-        container.addView(hero);
-        if (animate) Md3e.popIn(hero, 0);
+        LinearLayout advCard = new LinearLayout(this);
+        advCard.setOrientation(LinearLayout.VERTICAL);
+        advCard.setBackground(Md3e.card(this, theme.surfaceLow, 26));
+        advCard.setPadding(p, p, p, p);
 
-        LinearLayout ghCard = makeBentoCard(t.surface, 28);
-        TextView ghTitle = bentoTitle("GitHub 开源主页");
-        ghCard.addView(ghTitle);
-        TextView ghUrl = new TextView(this);
-        ghUrl.setText("https://github.com/MOUAJMD");
-        ghUrl.setTextColor(t.primary);
-        ghUrl.setTextSize(14);
-        ghCard.addView(ghUrl);
+        LinearLayout advRow = new LinearLayout(this);
+        advRow.setOrientation(LinearLayout.HORIZONTAL);
+        advRow.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView btnGh = makeActionPill("打开 GitHub 主页 ↗");
-        LinearLayout.LayoutParams glp = new LinearLayout.LayoutParams(-1, -2);
-        glp.topMargin = Md3e.dp(this, 12);
+        LinearLayout advTexts = new LinearLayout(this);
+        advTexts.setOrientation(LinearLayout.VERTICAL);
+
+        TextView advTitle = new TextView(this);
+        advTitle.setText("进阶模式");
+        advTitle.setTextSize(18);
+        advTitle.setTypeface(null, Typeface.BOLD);
+        advTitle.setTextColor(theme.textPrimary);
+        advTexts.addView(advTitle);
+
+        TextView advDesc = new TextView(this);
+        advDesc.setText("开启后解锁多应用共用情境、指定 Wi-Fi / 蓝牙触发、多条件 AND 组合及运行日志导出");
+        advDesc.setTextSize(13);
+        advDesc.setTextColor(theme.textSecondary);
+        LinearLayout.LayoutParams adlp = new LinearLayout.LayoutParams(-1, -2);
+        adlp.topMargin = Md3e.dp(this, 4);
+        advTexts.addView(advDesc, adlp);
+
+        advRow.addView(advTexts, new LinearLayout.LayoutParams(0, -2, 1f));
+
+        final Switch swAdv = new Switch(this);
+        swAdv.setChecked(advOn);
+        LinearLayout.LayoutParams swlp = new LinearLayout.LayoutParams(-2, -2);
+        swlp.leftMargin = Md3e.dp(this, 12);
+        advRow.addView(swAdv, swlp);
+
+        final LinearLayout logCard = new LinearLayout(this);
+        logCard.setVisibility(advOn ? View.VISIBLE : View.GONE);
+
+        swAdv.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                boolean on = swAdv.isChecked();
+                RuleStore.setAdvancedMode(MainActivity.this, on);
+                logCard.setVisibility(on ? View.VISIBLE : View.GONE);
+                if (on) Md3e.popIn(logCard, 0);
+                AppLogger.log("SETTINGS", "进阶模式已" + (on ? "开启" : "关闭"));
+                Toast.makeText(MainActivity.this, on ? "已开启进阶模式" : "已关闭进阶模式", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        advCard.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                swAdv.performClick();
+            }
+        });
+
+        advCard.addView(advRow);
+        pageContainer.addView(advCard);
+        Md3e.popIn(advCard, 0);
+
+        logCard.setOrientation(LinearLayout.VERTICAL);
+        logCard.setBackground(Md3e.card(this, theme.surfaceLow, 26));
+        logCard.setPadding(p, p, p, p);
+        LinearLayout.LayoutParams lclp = new LinearLayout.LayoutParams(-1, -2);
+        lclp.topMargin = Md3e.dp(this, 14);
+
+        TextView logTitle = new TextView(this);
+        logTitle.setText("运行日志导出");
+        logTitle.setTextSize(18);
+        logTitle.setTypeface(null, Typeface.BOLD);
+        logTitle.setTextColor(theme.textPrimary);
+        logCard.addView(logTitle);
+
+        TextView logDesc = new TextView(this);
+        logDesc.setText("自动导出至当前用户 Download/FluxCore/（无权限时自动回退至应用专属日志目录）");
+        logDesc.setTextSize(13);
+        logDesc.setTextColor(theme.textSecondary);
+        LinearLayout.LayoutParams ldlp = new LinearLayout.LayoutParams(-1, -2);
+        ldlp.topMargin = Md3e.dp(this, 4);
+        logCard.addView(logDesc, ldlp);
+
+        TextView btnExport = new TextView(this);
+        btnExport.setText("导出运行日志 (.txt)");
+        btnExport.setGravity(Gravity.CENTER);
+        btnExport.setTextColor(theme.onSecondaryContainer);
+        btnExport.setTypeface(null, Typeface.BOLD);
+        btnExport.setBackground(Md3e.ripple(this, theme.secondaryContainer, 0x22000000, 50));
+        btnExport.setPadding(0, Md3e.dp(this, 12), 0, Md3e.dp(this, 12));
+        LinearLayout.LayoutParams belp = new LinearLayout.LayoutParams(-1, -2);
+        belp.topMargin = Md3e.dp(this, 14);
+        logCard.addView(btnExport, belp);
+        Md3e.attachSpringTouch(btnExport);
+
+        btnExport.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        final String path = AppLogger.exportToDownload(MainActivity.this);
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                Toast.makeText(MainActivity.this,
+                                        path != null ? "日志已导出: " + path : "日志导出失败",
+                                        Toast.LENGTH_LONG).show();
+                            }
+                        });
+                    }
+                }).start();
+            }
+        });
+
+        pageContainer.addView(logCard, lclp);
+        if (advOn) Md3e.popIn(logCard, 45);
+
+        LinearLayout aboutCard = new LinearLayout(this);
+        aboutCard.setOrientation(LinearLayout.VERTICAL);
+        aboutCard.setBackground(Md3e.card(this, theme.surfaceLow, 26));
+        aboutCard.setPadding(p, p, p, p);
+        LinearLayout.LayoutParams aclp = new LinearLayout.LayoutParams(-1, -2);
+        aclp.topMargin = Md3e.dp(this, 14);
+
+        TextView aboutTitle = new TextView(this);
+        aboutTitle.setText("关于 · 流枢 FluxCore");
+        aboutTitle.setTextSize(18);
+        aboutTitle.setTypeface(null, Typeface.BOLD);
+        aboutTitle.setTextColor(theme.textPrimary);
+        aboutCard.addView(aboutTitle);
+
+        TextView aboutBody = new TextView(this);
+        aboutBody.setText("v1.1.0 · 原生 Root 事件驱动自动化与系统控制中枢\n" +
+                "GitHub: https://github.com/MOUAJMD\n" +
+                "酷安开发者账号: @C_AJMD_W");
+        aboutBody.setTextSize(13);
+        aboutBody.setLineSpacing(0, 1.35f);
+        aboutBody.setTextColor(theme.textSecondary);
+        LinearLayout.LayoutParams ablp = new LinearLayout.LayoutParams(-1, -2);
+        ablp.topMargin = Md3e.dp(this, 8);
+        aboutCard.addView(aboutBody, ablp);
+
+        TextView btnGh = new TextView(this);
+        btnGh.setText("打开 GitHub 主页 ↗");
+        btnGh.setGravity(Gravity.CENTER);
+        btnGh.setTextColor(theme.onSecondaryContainer);
+        btnGh.setTypeface(null, Typeface.BOLD);
+        btnGh.setBackground(Md3e.ripple(this, theme.secondaryContainer, 0x22000000, 50));
+        btnGh.setPadding(0, Md3e.dp(this, 12), 0, Md3e.dp(this, 12));
+        LinearLayout.LayoutParams ghlp = new LinearLayout.LayoutParams(-1, -2);
+        ghlp.topMargin = Md3e.dp(this, 12);
+        aboutCard.addView(btnGh, ghlp);
+        Md3e.attachSpringTouch(btnGh);
         btnGh.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Md3e.pulse(v);
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/MOUAJMD")));
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/MOUAJMD/FluxCore_for_Android")));
+                } catch (Throwable ignored) {}
             }
         });
-        ghCard.addView(btnGh, glp);
-        container.addView(ghCard);
-        if (animate) Md3e.popIn(ghCard, 60);
 
-        LinearLayout caCard = makeBentoCard(t.surface, 28);
-        caCard.addView(bentoTitle("酷安开发者账号"));
-        TextView caId = new TextView(this);
-        caId.setText("@C_AJMD_W");
-        caId.setTextColor(t.primary);
-        caId.setTextSize(15);
-        caId.setTypeface(null, Typeface.BOLD);
-        caCard.addView(caId);
-
-        TextView btnCa = makeActionPill("复制酷安 ID 并跳转");
-        LinearLayout.LayoutParams calp = new LinearLayout.LayoutParams(-1, -2);
-        calp.topMargin = Md3e.dp(this, 12);
-        btnCa.setOnClickListener(new View.OnClickListener() {
+        TextView btnCool = new TextView(this);
+        btnCool.setText("复制酷安 ID 并跳转");
+        btnCool.setGravity(Gravity.CENTER);
+        btnCool.setTextColor(theme.onSecondaryContainer);
+        btnCool.setTypeface(null, Typeface.BOLD);
+        btnCool.setBackground(Md3e.ripple(this, theme.secondaryContainer, 0x22000000, 50));
+        btnCool.setPadding(0, Md3e.dp(this, 12), 0, Md3e.dp(this, 12));
+        LinearLayout.LayoutParams clp2 = new LinearLayout.LayoutParams(-1, -2);
+        clp2.topMargin = Md3e.dp(this, 8);
+        aboutCard.addView(btnCool, clp2);
+        Md3e.attachSpringTouch(btnCool);
+        btnCool.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Md3e.pulse(v);
                 ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
                 if (cm != null) {
-                    cm.setPrimaryClip(ClipData.newPlainText("coolapk", "C_AJMD_W"));
+                    cm.setPrimaryClip(ClipData.newPlainText("coolapk_id", "@C_AJMD_W"));
                 }
-                Toast.makeText(MainActivity.this, "已复制酷安账号：@C_AJMD_W", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "已复制 @C_AJMD_W", Toast.LENGTH_SHORT).show();
                 try {
-                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("coolmarket://u/C_AJMD_W")));
-                } catch (Exception ignored) {}
+                    Intent i = getPackageManager().getLaunchIntentForPackage("com.coolapk.market");
+                    if (i != null) startActivity(i);
+                } catch (Throwable ignored) {}
             }
         });
-        caCard.addView(btnCa, calp);
-        container.addView(caCard);
-        if (animate) Md3e.popIn(caCard, 120);
-    }
 
-    private LinearLayout makeBentoCard(int bgColor, float radius) {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackground(Md3e.card(this, bgColor, radius));
-        int p = Md3e.dp(this, 18);
-        card.setPadding(p, p, p, p);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
-        lp.bottomMargin = Md3e.dp(this, 14);
-        card.setLayoutParams(lp);
-        return card;
-    }
-
-    private TextView bentoTitle(String text) {
-        TextView tv = new TextView(this);
-        tv.setText(text);
-        tv.setTextSize(16);
-        tv.setTypeface(null, Typeface.BOLD);
-        tv.setTextColor(t.textPrimary);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
-        lp.bottomMargin = Md3e.dp(this, 10);
-        tv.setLayoutParams(lp);
-        return tv;
-    }
-
-    private TextView makeActionPill(String text) {
-        TextView tv = new TextView(this);
-        tv.setText(text);
-        tv.setGravity(Gravity.CENTER);
-        tv.setTextSize(13);
-        tv.setTypeface(null, Typeface.BOLD);
-        tv.setTextColor(t.onSecondaryContainer);
-        tv.setBackground(Md3e.ripple(this, t.secondaryContainer, 0x22000000, 50));
-        tv.setPadding(Md3e.dp(this, 10), Md3e.dp(this, 11), Md3e.dp(this, 10), Md3e.dp(this, 11));
-        Md3e.attachSpringTouch(tv);
-        return tv;
+        pageContainer.addView(aboutCard, aclp);
+        Md3e.popIn(aboutCard, 90);
     }
 }

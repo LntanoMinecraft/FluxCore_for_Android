@@ -65,24 +65,7 @@ public class RuleEditorDialog {
         swTrigOn.setTextColor(t.textPrimary);
         swTrigOn.setChecked(r.triggerOn);
 
-        final Runnable updateTrigUi = new Runnable() {
-            @Override
-            public void run() {
-                if (r.triggerType == Rule.TRIG_MANUAL) {
-                    btnTrigDetail.setVisibility(View.GONE);
-                    swTrigOn.setVisibility(View.GONE);
-                } else if (r.triggerType == Rule.TRIG_APP) {
-                    btnTrigDetail.setVisibility(View.VISIBLE);
-                    btnTrigDetail.setText(r.triggerPkg.isEmpty() ? "点击选择目标应用..." : "目标应用：" + r.triggerPkg);
-                    swTrigOn.setVisibility(View.VISIBLE);
-                    swTrigOn.setText(swTrigOn.isChecked() ? "条件：打开该应用时" : "条件：退出该应用时");
-                } else {
-                    btnTrigDetail.setVisibility(View.GONE);
-                    swTrigOn.setVisibility(View.VISIBLE);
-                    swTrigOn.setText(swTrigOn.isChecked() ? "条件：状态开启/连接时" : "条件：状态关闭/断开时");
-                }
-            }
-        };
+        final AdvancedTriggerHelper.DelegateRunnable updateTrigUi = new AdvancedTriggerHelper.DelegateRunnable();
 
         addExpandableSelector(ctx, t, form, "触发类型", trigNames, r.triggerType, new OnSelectIndex() {
             @Override
@@ -94,7 +77,6 @@ public class RuleEditorDialog {
 
         form.addView(btnTrigDetail);
         form.addView(swTrigOn);
-        updateTrigUi.run();
 
         swTrigOn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -103,20 +85,8 @@ public class RuleEditorDialog {
                 updateTrigUi.run();
             }
         });
-        btnTrigDetail.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                AppPickerDialog.show(ctx, "选择触发应用", false, null, new AppPickerDialog.OnPickedListener() {
-                    @Override
-                    public void onPicked(List<String> packages) {
-                        if (!packages.isEmpty()) {
-                            r.triggerPkg = packages.get(0);
-                            updateTrigUi.run();
-                        }
-                    }
-                });
-            }
-        });
+
+        AdvancedTriggerHelper.attach(ctx, t, form, r, btnTrigDetail, swTrigOn, updateTrigUi);
 
         form.addView(section(ctx, t, "2. 执行动作 (THEN)"));
         final TextView btnKillApps = pillSelector(ctx, t,
