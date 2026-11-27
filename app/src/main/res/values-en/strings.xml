@@ -139,6 +139,8 @@
     <!-- Action Step Types -->
     <string name="step_qs_tile">QS Tile</string>
     <string name="step_kill_apps">Stop Apps</string>
+    <string name="step_launch_app">Launch App</string>
+    <string name="step_launch_app_summary">Launch %1$s</string>
     <string name="step_dnd">Do Not Disturb</string>
     <string name="step_refresh_rate">Refresh Rate</string>
     <string name="step_brightness">Brightness</string>
@@ -164,6 +166,8 @@
     <string name="rotate_off">Portrait</string>
     <string name="pick_tile_btn">Select tile</string>
     <string name="pick_kill_apps_btn">Select apps</string>
+    <string name="pick_launch_app_btn">Select app</string>
+    <string name="pick_launch_app_change">Change</string>
     <string name="custom_shell_hint">Enter su command or scan .sh scripts</string>
     <string name="scan_local_scripts">Scan Scripts</string>
     <string name="brightness_hbm_toggle">Override Limit · Peak Brightness (HBM)</string>

@@ -440,6 +440,7 @@ object ActionExecutor {
         ActionStepType.AUTO_ROTATE -> ManagedResource.AUTO_ROTATE
         ActionStepType.QS_TILE,
         ActionStepType.KILL_APPS,
+        ActionStepType.LAUNCH_APP,
         ActionStepType.VIBRATE,
         ActionStepType.CUSTOM_SHELL,
         ActionStepType.DELAY -> null

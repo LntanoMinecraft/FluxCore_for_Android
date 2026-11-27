@@ -29,6 +29,7 @@ enum class TriggerType(val code: Int) {
 enum class ActionStepType(val key: String) {
     QS_TILE("qs_tile"),
     KILL_APPS("kill_apps"),
+    LAUNCH_APP("launch_app"),
     DND_MODE("dnd_mode"),
     REFRESH_RATE("refresh_rate"),
     BRIGHTNESS("brightness"),
@@ -161,6 +162,14 @@ data class ActionStep(
             "${ctx.getString(R.string.step_qs_tile)} · $label"
         }
         ActionStepType.KILL_APPS -> "${ctx.getString(R.string.step_kill_apps)} (${stringList.size})"
+        ActionStepType.LAUNCH_APP -> {
+            val target = secondaryString.ifBlank { stringValue }
+            if (target.isBlank()) {
+                ctx.getString(R.string.step_launch_app)
+            } else {
+                ctx.getString(R.string.step_launch_app_summary, target)
+            }
+        }
         ActionStepType.DND_MODE -> {
             val mode = when (intValue) {
                 0 -> ctx.getString(R.string.dnd_off)
@@ -202,9 +211,16 @@ data class ActionStep(
         fun percentToFloat(percent: Int): Float =
             (percent.coerceIn(0, 100) / 100f).coerceIn(0f, 1f)
 
+        fun launchApp(packageName: String, appLabel: String = ""): ActionStep = ActionStep(
+            type = ActionStepType.LAUNCH_APP,
+            stringValue = packageName,
+            secondaryString = appLabel
+        )
+
         fun defaultFor(type: ActionStepType): ActionStep = when (type) {
             ActionStepType.QS_TILE -> ActionStep(type = type)
             ActionStepType.KILL_APPS -> ActionStep(type = type)
+            ActionStepType.LAUNCH_APP -> ActionStep(type = type)
             ActionStepType.DND_MODE -> ActionStep(type = type, intValue = 1)
             ActionStepType.REFRESH_RATE -> ActionStep(type = type, intValue = 120)
             ActionStepType.BRIGHTNESS -> ActionStep(
@@ -253,13 +269,19 @@ data class ActionStep(
                 ActionStepType.REFRESH_RATE -> rawInt.coerceAtLeast(60)
                 else -> rawInt
             }
+            val rawString = o.optString("stringValue", "").let {
+                if (it.isBlank() && type == ActionStepType.LAUNCH_APP) o.optString("packageName", "") else it
+            }
+            val rawSecondary = o.optString("secondaryString", "").let {
+                if (it.isBlank() && type == ActionStepType.LAUNCH_APP) o.optString("appLabel", "") else it
+            }
             return ActionStep(
                 id = stepId,
                 type = type,
                 intValue = normalizedInt,
                 boolValue = o.optBoolean("boolValue", true),
-                stringValue = o.optString("stringValue", ""),
-                secondaryString = o.optString("secondaryString", ""),
+                stringValue = rawString,
+                secondaryString = rawSecondary,
                 stringList = list
             )
         }

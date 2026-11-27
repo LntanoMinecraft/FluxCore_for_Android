@@ -139,6 +139,8 @@
     <!-- Action Step Types -->
     <string name="step_qs_tile">切换磁贴</string>
     <string name="step_kill_apps">停止应用</string>
+    <string name="step_launch_app">启动应用</string>
+    <string name="step_launch_app_summary">启动 %1$s</string>
     <string name="step_dnd">勿扰模式</string>
     <string name="step_refresh_rate">锁定刷新率</string>
     <string name="step_brightness">屏幕亮度</string>
@@ -164,6 +166,8 @@
     <string name="rotate_off">锁定竖屏</string>
     <string name="pick_tile_btn">选择磁贴</string>
     <string name="pick_kill_apps_btn">选择应用</string>
+    <string name="pick_launch_app_btn">选择应用</string>
+    <string name="pick_launch_app_change">更换</string>
     <string name="custom_shell_hint">输入 su 指令或搜索本地 .sh 脚本</string>
     <string name="scan_local_scripts">搜索本地脚本</string>
     <string name="brightness_hbm_toggle">突破上限 · 激发峰值亮度（HBM）</string>

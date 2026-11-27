@@ -1,7 +1,9 @@
 package com.mouajmd.fluxcore.engine
 
 import android.content.Context
+import android.content.Intent
 import android.media.AudioManager
+import android.os.SystemClock
 import com.mouajmd.fluxcore.data.AppLogger
 import com.mouajmd.fluxcore.model.ActionStep
 import com.mouajmd.fluxcore.model.ActionStepType
@@ -57,6 +59,10 @@ internal object ActionStepHandler {
                     HardwareDisplayController.applyPercentBrightness(ruleName, stepNumber, step.intValue)
                     null
                 }
+            }
+            ActionStepType.LAUNCH_APP -> {
+                executeLaunchApp(ctx, ruleName, stepNumber, step)
+                null
             }
             else -> {
                 val cmd = buildShellCommand(ctx, step)
@@ -138,7 +144,130 @@ internal object ActionStepHandler {
             "settings put system accelerometer_rotation 0\nsettings put system user_rotation 0"
         }
         ActionStepType.CUSTOM_SHELL -> step.stringValue.trim()
-        ActionStepType.BRIGHTNESS, ActionStepType.MEDIA_VOLUME, ActionStepType.VIBRATE, ActionStepType.DELAY -> ""
+        ActionStepType.BRIGHTNESS,
+        ActionStepType.MEDIA_VOLUME,
+        ActionStepType.VIBRATE,
+        ActionStepType.DELAY,
+        ActionStepType.LAUNCH_APP -> ""
+    }
+
+    private fun executeLaunchApp(
+        ctx: Context,
+        ruleName: String,
+        stepNumber: Int,
+        step: ActionStep
+    ) {
+        val pkg = step.stringValue.trim()
+        if (pkg.isEmpty()) {
+            AppLogger.warn("LAUNCH", "[$ruleName #$stepNumber] Launch app skipped: no target package")
+            return
+        }
+        if (!safePackageRegex.matches(pkg)) {
+            AppLogger.error("LAUNCH", "[$ruleName #$stepNumber] Invalid package name: $pkg")
+            return
+        }
+
+        val startMs = SystemClock.elapsedRealtime()
+        val launchIntent = runCatching {
+            ctx.packageManager.getLaunchIntentForPackage(pkg)
+        }.getOrNull()
+
+        val explicitComponent = launchIntent?.component?.let { comp ->
+            val compPkg = comp.packageName.trim()
+            val compCls = comp.className.trim()
+            val flattened = "$compPkg/$compCls"
+            if (compPkg.isNotEmpty() && compCls.isNotEmpty() && safeComponentRegex.matches(flattened)) {
+                flattened
+            } else {
+                null
+            }
+        }
+
+        var rootSucceeded = false
+        var rootErrDetail = ""
+
+        if (explicitComponent != null) {
+            val amRes = RootShell.execDetailed("am start -n ${RootShell.shellQuote(explicitComponent)}")
+            val amFailed = !amRes.isSuccess ||
+                amRes.output.contains("Error:", ignoreCase = true) ||
+                amRes.output.contains("Exception", ignoreCase = true) ||
+                amRes.output.startsWith("ERR:")
+            if (!amFailed) {
+                rootSucceeded = true
+                val elapsed = SystemClock.elapsedRealtime() - startMs
+                AppLogger.log(
+                    "LAUNCH",
+                    "[$ruleName #$stepNumber] Launch $pkg via am start ($explicitComponent) OK (${elapsed}ms)"
+                )
+            } else {
+                rootErrDetail = "am start exit=${amRes.exitCode}: ${amRes.output.take(140)}"
+                val suUnavailable = amRes.exitCode == -1 && amRes.output.startsWith("ERR:")
+                if (!suUnavailable) {
+                    val monkeyRes = RootShell.execDetailed(
+                        "monkey -p ${RootShell.shellQuote(pkg)} -c android.intent.category.LAUNCHER 1"
+                    )
+                    val monkeyOk = monkeyRes.isSuccess &&
+                        !monkeyRes.output.contains("No activities found", ignoreCase = true) &&
+                        !monkeyRes.output.contains("aborted", ignoreCase = true) &&
+                        !monkeyRes.output.startsWith("ERR:")
+                    if (monkeyOk) {
+                        rootSucceeded = true
+                        val elapsed = SystemClock.elapsedRealtime() - startMs
+                        AppLogger.log(
+                            "LAUNCH",
+                            "[$ruleName #$stepNumber] Launch $pkg via monkey OK (${elapsed}ms)"
+                        )
+                    } else {
+                        rootErrDetail = "$rootErrDetail | monkey exit=${monkeyRes.exitCode}: ${monkeyRes.output.take(120)}"
+                    }
+                }
+            }
+        } else {
+            val monkeyRes = RootShell.execDetailed(
+                "monkey -p ${RootShell.shellQuote(pkg)} -c android.intent.category.LAUNCHER 1"
+            )
+            val monkeyOk = monkeyRes.isSuccess &&
+                !monkeyRes.output.contains("No activities found", ignoreCase = true) &&
+                !monkeyRes.output.contains("aborted", ignoreCase = true) &&
+                !monkeyRes.output.startsWith("ERR:")
+            if (monkeyOk) {
+                rootSucceeded = true
+                val elapsed = SystemClock.elapsedRealtime() - startMs
+                AppLogger.log(
+                    "LAUNCH",
+                    "[$ruleName #$stepNumber] Launch $pkg via monkey OK (${elapsed}ms)"
+                )
+            } else {
+                rootErrDetail = "monkey exit=${monkeyRes.exitCode}: ${monkeyRes.output.take(140)}"
+            }
+        }
+
+        if (!rootSucceeded) {
+            if (launchIntent != null) {
+                runCatching {
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    ctx.startActivity(launchIntent)
+                }.onSuccess {
+                    val elapsed = SystemClock.elapsedRealtime() - startMs
+                    AppLogger.log(
+                        "LAUNCH",
+                        "[$ruleName #$stepNumber] Launch $pkg via startActivity fallback OK (${elapsed}ms)"
+                    )
+                }.onFailure { err ->
+                    val elapsed = SystemClock.elapsedRealtime() - startMs
+                    AppLogger.error(
+                        "LAUNCH",
+                        "[$ruleName #$stepNumber] Launch $pkg failed (${elapsed}ms) [root: $rootErrDetail; fallback: ${err.message}]"
+                    )
+                }
+            } else {
+                val elapsed = SystemClock.elapsedRealtime() - startMs
+                AppLogger.error(
+                    "LAUNCH",
+                    "[$ruleName #$stepNumber] Launch $pkg failed (${elapsed}ms): no launch intent [$rootErrDetail]"
+                )
+            }
+        }
     }
 
     fun appendStepReverseActions(sb: StringBuilder, steps: List<ActionStep>) {

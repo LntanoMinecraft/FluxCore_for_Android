@@ -116,9 +116,9 @@ private object AppIconCache {
 }
 
 @Composable
-private fun AppPackageIcon(
+fun AppPackageIcon(
     packageName: String,
-    isPicked: Boolean,
+    isPicked: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val ctx = LocalContext.current
@@ -189,7 +189,8 @@ fun AppPickerSheet(
     multiSelect: Boolean,
     initialSelection: List<String>,
     onDismiss: () -> Unit,
-    onConfirm: (List<String>) -> Unit
+    onConfirm: (List<String>) -> Unit,
+    onSelectApp: ((packageName: String, appLabel: String) -> Unit)? = null
 ) {
     val ctx = LocalContext.current
     val view = LocalView.current
@@ -315,7 +316,11 @@ fun AppPickerSheet(
                                         if (isPicked) selected.remove(app.packageName)
                                         else selected.add(app.packageName)
                                     } else {
-                                        onConfirm(listOf(app.packageName))
+                                        if (onSelectApp != null) {
+                                            onSelectApp(app.packageName, app.label)
+                                        } else {
+                                            onConfirm(listOf(app.packageName))
+                                        }
                                     }
                                 }
                         ) {

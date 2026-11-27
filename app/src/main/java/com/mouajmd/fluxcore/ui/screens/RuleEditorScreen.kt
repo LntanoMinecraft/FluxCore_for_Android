@@ -54,6 +54,7 @@ import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PowerSettingsNew
+import androidx.compose.material.icons.rounded.RocketLaunch
 import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.Speed
@@ -117,6 +118,7 @@ import com.mouajmd.fluxcore.model.RuleCondition
 import com.mouajmd.fluxcore.model.ShellScriptItem
 import com.mouajmd.fluxcore.model.TriggerType
 import com.mouajmd.fluxcore.system.HapticEngine
+import com.mouajmd.fluxcore.ui.components.AppPackageIcon
 import com.mouajmd.fluxcore.ui.components.AppPickerSheet
 import com.mouajmd.fluxcore.ui.components.ExpressivePercentSlider
 import com.mouajmd.fluxcore.ui.components.ExtraConditionSheet
@@ -183,6 +185,7 @@ fun RuleEditorScreen(
     var btCandidatesDialog by remember { mutableStateOf<List<String>?>(null) }
     var tilePickerTargetStepId by remember { mutableStateOf<String?>(null) }
     var killAppsTargetStepId by remember { mutableStateOf<String?>(null) }
+    var launchAppTargetStepId by remember { mutableStateOf<String?>(null) }
     var scriptScannerTargetStepId by remember { mutableStateOf<String?>(null) } // "__REVERT__" for revertCmd
     var topMenuExpanded by remember { mutableStateOf(false) }
     var showShortcutDialog by remember { mutableStateOf(false) }
@@ -818,6 +821,7 @@ fun RuleEditorScreen(
                                     },
                                     onOpenTilePicker = { tilePickerTargetStepId = step.id },
                                     onOpenKillAppsPicker = { killAppsTargetStepId = step.id },
+                                    onOpenLaunchAppPicker = { launchAppTargetStepId = step.id },
                                     onOpenScriptScanner = { scriptScannerTargetStepId = step.id }
                                 )
                             }
@@ -1038,6 +1042,36 @@ fun RuleEditorScreen(
         )
     }
 
+    val launchStepId = launchAppTargetStepId
+    if (launchStepId != null) {
+        val currentStep = actionSteps.firstOrNull { it.id == launchStepId }
+        AppPickerSheet(
+            multiSelect = false,
+            initialSelection = listOfNotNull(currentStep?.stringValue?.takeIf { it.isNotBlank() }),
+            onDismiss = { launchAppTargetStepId = null },
+            onConfirm = { picked ->
+                val pkg = picked.firstOrNull().orEmpty()
+                if (pkg.isNotEmpty()) {
+                    val i = actionSteps.indexOfFirst { it.id == launchStepId }
+                    if (i >= 0) {
+                        actionSteps[i] = actionSteps[i].copy(stringValue = pkg)
+                    }
+                }
+                launchAppTargetStepId = null
+            },
+            onSelectApp = { pkg, label ->
+                val i = actionSteps.indexOfFirst { it.id == launchStepId }
+                if (i >= 0) {
+                    actionSteps[i] = actionSteps[i].copy(
+                        stringValue = pkg,
+                        secondaryString = label
+                    )
+                }
+                launchAppTargetStepId = null
+            }
+        )
+    }
+
     val scannerTarget = scriptScannerTargetStepId
     if (scannerTarget != null) {
         ScriptScannerSheet(
@@ -1088,6 +1122,7 @@ private fun ActionStepPipelineCard(
     onRemove: () -> Unit,
     onOpenTilePicker: () -> Unit,
     onOpenKillAppsPicker: () -> Unit,
+    onOpenLaunchAppPicker: () -> Unit,
     onOpenScriptScanner: () -> Unit
 ) {
     val view = LocalView.current
@@ -1235,6 +1270,88 @@ private fun ActionStepPipelineCard(
                                 "${stringResource(R.string.pick_kill_apps_btn)} (${step.stringList.size})"
                             }
                         )
+                    }
+                }
+                ActionStepType.LAUNCH_APP -> {
+                    val pkg = step.stringValue.trim()
+                    if (pkg.isEmpty()) {
+                        FilledTonalButton(
+                            onClick = {
+                                HapticEngine.click(view)
+                                onOpenLaunchAppPicker()
+                            },
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("launch_app_pick_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Apps,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.pick_launch_app_btn))
+                        }
+                    } else {
+                        val displayLabel = step.secondaryString.ifBlank { pkg }
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .clickable {
+                                    HapticEngine.click(view)
+                                    onOpenLaunchAppPicker()
+                                }
+                                .testTag("launch_app_selected_card")
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                AppPackageIcon(
+                                    packageName = pkg,
+                                    isPicked = false
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = displayLabel,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = pkg,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontFamily = JetBrainsMonoFamily,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                FilledTonalButton(
+                                    onClick = {
+                                        HapticEngine.click(view)
+                                        onOpenLaunchAppPicker()
+                                    },
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                    modifier = Modifier.testTag("launch_app_change_btn")
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.pick_launch_app_change),
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
                 ActionStepType.DND_MODE -> {
@@ -1539,6 +1656,7 @@ private fun triggerDirectionText(type: TriggerType, on: Boolean, adv: Boolean): 
 private fun stepIcon(type: ActionStepType): ImageVector = when (type) {
     ActionStepType.QS_TILE -> Icons.Rounded.Tune
     ActionStepType.KILL_APPS -> Icons.Rounded.PowerSettingsNew
+    ActionStepType.LAUNCH_APP -> Icons.Rounded.RocketLaunch
     ActionStepType.DND_MODE -> Icons.Rounded.DoNotDisturbOn
     ActionStepType.REFRESH_RATE -> Icons.Rounded.Speed
     ActionStepType.BRIGHTNESS -> Icons.Rounded.Brightness6
@@ -1558,6 +1676,7 @@ private fun stepIcon(type: ActionStepType): ImageVector = when (type) {
 private fun stepTitleRes(type: ActionStepType): Int = when (type) {
     ActionStepType.QS_TILE -> R.string.step_qs_tile
     ActionStepType.KILL_APPS -> R.string.step_kill_apps
+    ActionStepType.LAUNCH_APP -> R.string.step_launch_app
     ActionStepType.DND_MODE -> R.string.step_dnd
     ActionStepType.REFRESH_RATE -> R.string.step_refresh_rate
     ActionStepType.BRIGHTNESS -> R.string.step_brightness

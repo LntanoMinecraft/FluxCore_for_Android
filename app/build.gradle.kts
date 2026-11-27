@@ -12,8 +12,8 @@ android {
         applicationId = "com.mouajmd.fluxcore"
         minSdk = 26
         targetSdk = 36
-        versionCode = 12
-        versionName = "12.0"
+        versionCode = 13
+        versionName = "13.0"
     }
 
     // Do not remove or modify these signingConfigs. They are necessary for building, installing,
