@@ -286,26 +286,21 @@ class FluxCoreViewModel(application: Application) : AndroidViewModel(application
         SettingsStore.setHapticEnabled(appCtx, enabled)
     }
 
-    fun setHidePersistentNotification(hide: Boolean, onComplete: (appliedViaRoot: Boolean) -> Unit) {
+    fun setHidePersistentNotification(hide: Boolean, onComplete: () -> Unit) {
         SettingsStore.setHidePersistentNotification(appCtx, hide)
-        FluxService.ensureDaemonChannel(appCtx)
+        FluxService.syncNotificationMode(appCtx)
         viewModelScope.launch(Dispatchers.IO) {
-            val mode = if (hide) "ignore" else "allow"
-            var appliedViaRoot = false
-            if (RootShell.hasRoot()) {
+            if (hide && RootShell.hasRoot()) {
                 val pkg = RootShell.shellQuote(appCtx.packageName)
-                val res = RootShell.execDetailed("cmd appops set $pkg POST_NOTIFICATION $mode")
-                appliedViaRoot = res.isSuccess
+                val wlRes = RootShell.execDetailed("dumpsys deviceidle whitelist +$pkg")
+                val bgRes = RootShell.execDetailed("cmd appops set $pkg RUN_ANY_IN_BACKGROUND allow")
                 AppLogger.log(
                     "PERM",
-                    "Root POST_NOTIFICATION $mode (exit=${res.exitCode}): ${res.output.ifBlank { "ok" }}"
+                    "Keep-alive hardened: deviceidle(exit=${wlRes.exitCode}), RUN_ANY_IN_BACKGROUND(exit=${bgRes.exitCode})"
                 )
             }
-            if (appliedViaRoot && FluxService.isRunning.value) {
-                FluxService.refreshNotification(appCtx)
-            }
             withContext(Dispatchers.Main) {
-                onComplete(appliedViaRoot)
+                onComplete()
             }
         }
     }

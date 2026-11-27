@@ -19,11 +19,13 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import androidx.core.app.ServiceCompat
 import com.mouajmd.fluxcore.BuildConfig
 import com.mouajmd.fluxcore.MainActivity
 import com.mouajmd.fluxcore.R
 import com.mouajmd.fluxcore.data.AppLogger
 import com.mouajmd.fluxcore.data.RuleStore
+import com.mouajmd.fluxcore.data.SettingsStore
 import com.mouajmd.fluxcore.engine.ActionExecutor
 import com.mouajmd.fluxcore.engine.RuleMatcher
 import com.mouajmd.fluxcore.engine.SystemEnvironmentState
@@ -69,16 +71,40 @@ class FluxService : Service() {
         const val DAEMON_CHANNEL_ID = "fluxcore_daemon_channel"
         const val DAEMON_NOTIF_ID = 101
         private const val LEGACY_CHANNEL_ID = "fluxcore_engine"
+        const val ACTION_REFRESH_NOTIFICATION = "com.mouajmd.fluxcore.action.REFRESH_NOTIFICATION"
+        private const val EXTRA_FORCE_FOREGROUND = "extra_force_foreground"
 
         private val _isRunning = MutableStateFlow(false)
         val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
 
         fun start(context: Context) {
-            runCatching {
-                val intent = Intent(context.applicationContext, FluxService::class.java)
-                context.applicationContext.startForegroundService(intent)
-            }.onFailure {
-                AppLogger.warn("ENGINE", "Service start skipped: ${it.message}")
+            val appCtx = context.applicationContext
+            val hideNotif = SettingsStore.isHidePersistentNotification(appCtx)
+            val intent = Intent(appCtx, FluxService::class.java)
+            if (hideNotif) {
+                try {
+                    appCtx.startService(intent)
+                    AppLogger.log("ENGINE", "Started FluxService in silent background mode")
+                } catch (e: Exception) {
+                    AppLogger.warn(
+                        "ENGINE",
+                        "Background startService restricted (${e.javaClass.simpleName}: ${e.message}); falling back to foreground mode"
+                    )
+                    runCatching {
+                        val fallbackIntent = Intent(appCtx, FluxService::class.java).apply {
+                            putExtra(EXTRA_FORCE_FOREGROUND, true)
+                        }
+                        appCtx.startForegroundService(fallbackIntent)
+                    }.onFailure { fallbackErr ->
+                        AppLogger.error("ENGINE", "Foreground fallback start failed: ${fallbackErr.message}")
+                    }
+                }
+            } else {
+                runCatching {
+                    appCtx.startForegroundService(intent)
+                }.onFailure {
+                    AppLogger.warn("ENGINE", "Service start skipped: ${it.message}")
+                }
             }
         }
 
@@ -118,12 +144,31 @@ class FluxService : Service() {
                 .build()
         }
 
-        fun refreshNotification(context: Context) {
-            if (!_isRunning.value) return
+        fun syncNotificationMode(context: Context) {
             val appCtx = context.applicationContext
-            runCatching {
-                val nm = appCtx.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-                nm?.notify(DAEMON_NOTIF_ID, buildDaemonNotification(appCtx))
+            val hideNotif = SettingsStore.isHidePersistentNotification(appCtx)
+            if (!_isRunning.value) {
+                if (hideNotif) {
+                    runCatching {
+                        val nm = appCtx.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                        nm?.cancel(DAEMON_NOTIF_ID)
+                    }
+                }
+                return
+            }
+            val intent = Intent(appCtx, FluxService::class.java).apply {
+                action = ACTION_REFRESH_NOTIFICATION
+            }
+            try {
+                appCtx.startService(intent)
+            } catch (e: Exception) {
+                AppLogger.warn("ENGINE", "Refresh notification via startService failed: ${e.message}")
+                if (!hideNotif) {
+                    runCatching {
+                        intent.putExtra(EXTRA_FORCE_FOREGROUND, true)
+                        appCtx.startForegroundService(intent)
+                    }
+                }
             }
         }
     }
@@ -222,7 +267,6 @@ class FluxService : Service() {
         super.onCreate()
         _isRunning.value = true
         AppLogger.log("ENGINE", "FluxCore v${BuildConfig.VERSION_NAME} engine started")
-        startForegroundCompat()
         initInitialStates()
 
         val filter = IntentFilter().apply {
@@ -272,6 +316,16 @@ class FluxService : Service() {
 
     private fun startForegroundCompat() {
         startForeground(DAEMON_NOTIF_ID, buildDaemonNotification(this))
+    }
+
+    private fun detachForegroundAndCancelNotification() {
+        runCatching {
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        }
+        runCatching {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            nm?.cancel(DAEMON_NOTIF_ID)
+        }
     }
 
     private fun onForegroundPackageDetected(pkg: String) {
@@ -471,7 +525,30 @@ class FluxService : Service() {
         runCatching { proc.destroyForcibly() }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val forceForeground = intent?.getBooleanExtra(EXTRA_FORCE_FOREGROUND, false) == true
+        val hideNotif = SettingsStore.isHidePersistentNotification(this)
+
+        when (intent?.action) {
+            ACTION_REFRESH_NOTIFICATION -> {
+                if (hideNotif && !forceForeground) {
+                    detachForegroundAndCancelNotification()
+                    AppLogger.log("ENGINE", "Persistent notification removed (silent background mode)")
+                } else {
+                    startForegroundCompat()
+                    AppLogger.log("ENGINE", "Persistent notification restored (foreground mode)")
+                }
+            }
+            else -> {
+                if (forceForeground || !hideNotif) {
+                    startForegroundCompat()
+                } else {
+                    detachForegroundAndCancelNotification()
+                }
+            }
+        }
+        return START_STICKY
+    }
 
     override fun onDestroy() {
         _isRunning.value = false

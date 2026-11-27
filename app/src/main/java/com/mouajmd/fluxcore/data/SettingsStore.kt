@@ -106,6 +106,11 @@ object SettingsStore {
         _settings.value = _settings.value.copy(hapticEnabled = enabled)
     }
 
+    fun isHidePersistentNotification(context: Context): Boolean =
+        context.applicationContext
+            .getSharedPreferences(PREF_SETTINGS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_HIDE_PERSISTENT_NOTIF, false)
+
     fun setHidePersistentNotification(context: Context, hide: Boolean) {
         context.applicationContext.getSharedPreferences(PREF_SETTINGS, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_HIDE_PERSISTENT_NOTIF, hide).apply()
