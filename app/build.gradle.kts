@@ -9,10 +9,10 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.lntano.fluxcore"
+        applicationId = "com.mouajmd.fluxcore"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
+        versionCode = 11
         versionName = "2.0.0"
     }
 
