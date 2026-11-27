@@ -16,14 +16,18 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.BatteryManager;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.PowerManager;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,6 +35,7 @@ public class FluxService extends Service {
     public static volatile boolean isRunning = false;
     private volatile boolean stopFlag = false;
     private Process logcatProc;
+    private Process focusWatcherProc;
 
     private volatile String currentFgPkg = "";
     private volatile boolean isCharging = false;
@@ -42,6 +47,9 @@ public class FluxService extends Service {
     private volatile String connectedBtDump = "";
     private volatile boolean isHeadsetPlugged = false;
     private volatile boolean isLandscape = false;
+
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Map<String, Runnable> pendingReverts = new HashMap<>();
 
     private final BroadcastReceiver sysReceiver = new BroadcastReceiver() {
         @Override
@@ -134,6 +142,7 @@ public class FluxService extends Service {
         }
 
         startEventStreamThread();
+        startFocusWatcherThread();
     }
 
     private void initInitialStates() {
@@ -151,6 +160,30 @@ public class FluxService extends Service {
             isLandscape = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
         } catch (Throwable ignored) {}
         refreshNetworkAndBtAsync("初始化硬件状态");
+    }
+
+    private void onForegroundPackageDetected(String pkg) {
+        if (pkg == null || pkg.isEmpty()) return;
+        // 忽略系统状态栏下拉或无窗口焦点过渡态
+        if ("com.android.systemui".equals(pkg)) return;
+        if (!pkg.equals(currentFgPkg)) {
+            currentFgPkg = pkg;
+            AppLogger.log("APP", "前台应用切换 -> " + pkg);
+            evaluateAllRules();
+        }
+    }
+
+    private String queryTopPackageViaDumpsys() {
+        String out = RootShell.exec("dumpsys window 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp' | tail -n 2");
+        if (out != null && !out.isEmpty()) {
+            Matcher m = Pattern.compile("([a-zA-Z0-9_]+(?:\\.[a-zA-Z0-9_]+)+)/").matcher(out);
+            String last = "";
+            while (m.find()) {
+                last = m.group(1);
+            }
+            if (!last.isEmpty()) return last;
+        }
+        return "";
     }
 
     private void refreshNetworkAndBtAsync(final String reason) {
@@ -195,7 +228,7 @@ public class FluxService extends Service {
                 ? new Notification.Builder(this, chId)
                 : new Notification.Builder(this);
         b.setContentTitle("流枢 · FluxCore 运行中")
-         .setContentText("零轮询监听系统事件 · 规则引擎已就绪")
+         .setContentText("事件驱动监听系统状态 · 规则引擎就绪")
          .setSmallIcon(android.R.drawable.ic_popup_sync)
          .setOngoing(true);
         startForeground(101, b.build());
@@ -205,7 +238,7 @@ public class FluxService extends Service {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                Pattern resumePat = Pattern.compile("(?:am_on_resume_called|wm_on_resume_called|am_resumed):\\s*\\[\\d+,([a-zA-Z0-9_\\.]+),");
+                Pattern eventPat = Pattern.compile("(?:am_on_resume_called|wm_on_resume_called|am_focused_activity|wm_set_resumed_activity|am_resumed):\\s*\\[[^\\]]*?([a-zA-Z0-9_]+(?:\\.[a-zA-Z0-9_]+)+)[,/\\]]");
                 while (!stopFlag) {
                     try {
                         logcatProc = Runtime.getRuntime().exec("su");
@@ -216,15 +249,50 @@ public class FluxService extends Service {
                         BufferedReader br = new BufferedReader(new InputStreamReader(logcatProc.getInputStream(), StandardCharsets.UTF_8));
                         String line;
                         while (!stopFlag && (line = br.readLine()) != null) {
-                            Matcher m = resumePat.matcher(line);
+                            Matcher m = eventPat.matcher(line);
                             if (m.find()) {
-                                String pkg = m.group(1);
-                                if (pkg != null && !pkg.equals(currentFgPkg)) {
-                                    currentFgPkg = pkg;
-                                    AppLogger.log("APP", "前台应用切换 -> " + pkg);
-                                    evaluateAllRules();
+                                onForegroundPackageDetected(m.group(1));
+                            }
+                        }
+                    } catch (Throwable ignored) {}
+                    try { Thread.sleep(1500); } catch (InterruptedException ignored) {}
+                }
+            }
+        }).start();
+    }
+
+    private void startFocusWatcherThread() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                Pattern pkgPat = Pattern.compile("([a-zA-Z0-9_]+(?:\\.[a-zA-Z0-9_]+)+)/");
+                while (!stopFlag) {
+                    try {
+                        focusWatcherProc = Runtime.getRuntime().exec("su");
+                        DataOutputStream os = new DataOutputStream(focusWatcherProc.getOutputStream());
+                        BufferedReader br = new BufferedReader(new InputStreamReader(focusWatcherProc.getInputStream(), StandardCharsets.UTF_8));
+
+                        while (!stopFlag) {
+                            if (!isScreenOn) {
+                                Thread.sleep(1500);
+                                continue;
+                            }
+                            os.writeBytes("dumpsys window 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp' | tail -n 2; echo __END__\n");
+                            os.flush();
+
+                            String line;
+                            String detected = "";
+                            while ((line = br.readLine()) != null) {
+                                if ("__END__".equals(line.trim())) break;
+                                Matcher m = pkgPat.matcher(line);
+                                while (m.find()) {
+                                    detected = m.group(1);
                                 }
                             }
+                            if (!detected.isEmpty()) {
+                                onForegroundPackageDetected(detected);
+                            }
+                            Thread.sleep(800);
                         }
                     } catch (Throwable ignored) {}
                     try { Thread.sleep(1500); } catch (InterruptedException ignored) {}
@@ -296,25 +364,56 @@ public class FluxService extends Service {
         }
     }
 
-    private synchronized void evaluateAllRules() {
-        List<Rule> rules = RuleStore.load(this);
-        for (Rule r : rules) {
-            if (!r.enabled || r.triggerType == Rule.TRIG_MANUAL) continue;
-
-            boolean allMatched = checkConditionMatch(r.triggerType, r.triggerOn, r.triggerPkgs, r.triggerTarget, r.triggerThreshold);
-            if (allMatched && r.extraConditions != null) {
-                for (Rule.Condition c : r.extraConditions) {
-                    if (!checkConditionMatch(c.type, c.stateOn, c.pkgs, c.targetName, c.threshold)) {
-                        allMatched = false;
-                        break;
-                    }
+    private boolean isRuleMatchedNow(Rule r) {
+        if (!checkConditionMatch(r.triggerType, r.triggerOn, r.triggerPkgs, r.triggerTarget, r.triggerThreshold)) {
+            return false;
+        }
+        if (r.extraConditions != null) {
+            for (Rule.Condition c : r.extraConditions) {
+                if (!checkConditionMatch(c.type, c.stateOn, c.pkgs, c.targetName, c.threshold)) {
+                    return false;
                 }
             }
+        }
+        return true;
+    }
 
-            if (allMatched) {
+    private synchronized void evaluateAllRules() {
+        List<Rule> rules = RuleStore.load(this);
+        for (final Rule r : rules) {
+            if (!r.enabled || r.triggerType == Rule.TRIG_MANUAL) continue;
+
+            if (isRuleMatchedNow(r)) {
+                Runnable pending = pendingReverts.remove(r.id);
+                if (pending != null) mainHandler.removeCallbacks(pending);
                 ActionExecutor.activate(this, r);
-            } else {
-                ActionExecutor.deactivate(this, r);
+            } else if (ActionExecutor.isActive(r.id)) {
+                if (r.triggerType == Rule.TRIG_APP) {
+                    if (!pendingReverts.containsKey(r.id)) {
+                        Runnable task = new Runnable() {
+                            @Override
+                            public void run() {
+                                pendingReverts.remove(r.id);
+                                new Thread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        String top = queryTopPackageViaDumpsys();
+                                        if (!top.isEmpty() && !"com.android.systemui".equals(top)) {
+                                            currentFgPkg = top;
+                                        }
+                                        if (!isRuleMatchedNow(r)) {
+                                            ActionExecutor.deactivate(FluxService.this, r);
+                                        }
+                                    }
+                                }).start();
+                            }
+                        };
+                        pendingReverts.put(r.id, task);
+                        mainHandler.postDelayed(task, 1500);
+                    }
+                } else {
+                    ActionExecutor.deactivate(this, r);
+                }
             }
         }
     }
@@ -331,6 +430,7 @@ public class FluxService extends Service {
         AppLogger.log("ENGINE", "FluxCore 引擎已停止");
         try { unregisterReceiver(sysReceiver); } catch (Throwable ignored) {}
         if (logcatProc != null) logcatProc.destroy();
+        if (focusWatcherProc != null) focusWatcherProc.destroy();
         super.onDestroy();
     }
 
