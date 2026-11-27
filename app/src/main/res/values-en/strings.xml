@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FluxCore</string>
+
+    <!-- Navigation Tabs -->
+    <string name="tab_profiles">Profiles</string>
+    <string name="tab_console">Console</string>
+    <string name="tab_logs">Logs</string>
+    <string name="tab_settings">Settings</string>
+
+    <!-- Real-time Status Card -->
+    <string name="status_ready_title">Root Ready · Active</string>
+    <string name="status_ready_sub">Battery unrestricted · DND granted</string>
+    <string name="status_missing_title">Setup Required</string>
+    <string name="status_check_root_ok">Root OK</string>
+    <string name="status_check_root_missing">No Root</string>
+    <string name="status_check_battery_ok">Unrestricted</string>
+    <string name="status_check_battery_missing">Battery Limited</string>
+    <string name="status_check_dnd_ok">DND OK</string>
+    <string name="status_check_dnd_missing">No DND Access</string>
+    <string name="status_check_service_ok">Monitoring</string>
+    <string name="status_check_service_missing">Service Stopped</string>
+    <string name="status_action_request_root">Request Root</string>
+    <string name="status_action_battery_settings">Battery Settings</string>
+    <string name="status_action_dnd_settings">DND Settings</string>
+    <string name="status_action_start_service">Start Service</string>
+    <string name="status_recheck_cd">Recheck runtime status</string>
+
+    <!-- Profiles Screen -->
+    <string name="action_new_profile">New Profile</string>
+    <string name="empty_profiles_title">No profiles yet</string>
+    <string name="empty_profiles_desc">Tap below to add your first rule</string>
+    <string name="btn_trigger_now">Run</string>
+    <string name="btn_revert_now">Revert</string>
+    <string name="menu_add_qs_tile">Add to Quick Settings</string>
+    <string name="menu_add_shortcut">Pin to Home Screen</string>
+    <string name="menu_edit_rule">Edit</string>
+    <string name="menu_delete_rule">Delete</string>
+    <string name="rule_active_badge">Active</string>
+    <string name="rule_idle_badge">Idle</string>
+    <string name="rule_steps_count">%1$d steps</string>
+    <string name="rule_no_actions">No actions</string>
+    <string name="dialog_delete_title">Delete Profile</string>
+    <string name="dialog_delete_msg">Delete \"%1$s\"? Linked Quick Settings tiles and shortcuts will stop working.</string>
+    <string name="dialog_shortcut_title">Pin to Home Screen</string>
+    <string name="dialog_shortcut_hint">Shortcut label</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_confirm">Confirm</string>
+    <string name="btn_save">Save</string>
+    <string name="btn_delete">Delete</string>
+    <string name="btn_back">Back</string>
+    <string name="btn_more">More</string>
+
+    <!-- QS Tile & Shortcut Feedback -->
+    <string name="tile_added_success">Added to Quick Settings</string>
+    <string name="tile_already_added">Tile already added</string>
+    <string name="tile_slots_full">All 6 tile slots are in use. Remove an existing rule first.</string>
+    <string name="tile_legacy_guide">Tile enabled. Drag \"%1$s\" from the Quick Settings editor.</string>
+    <string name="shortcut_requested">Shortcut pin requested</string>
+    <string name="shortcut_unsupported">Launcher does not support pinned shortcuts</string>
+    <string name="shortcut_activated">Activated \"%1$s\"</string>
+    <string name="shortcut_reverted">Reverted \"%1$s\"</string>
+    <string name="shortcut_missing">Profile was deleted</string>
+
+    <!-- Rule Editor -->
+    <string name="editor_title_new">New Profile</string>
+    <string name="editor_title_edit">Edit Profile</string>
+    <string name="editor_section_basic">Basics</string>
+    <string name="editor_rule_name_label">Profile name</string>
+    <string name="editor_rule_name_default">Untitled</string>
+    <string name="editor_auto_revert">Auto-revert on exit</string>
+    <string name="editor_auto_revert_desc">Restore original states when leaving</string>
+
+    <string name="editor_section_trigger">Trigger</string>
+    <string name="trigger_manual">Manual</string>
+    <string name="trigger_app">App Focus</string>
+    <string name="trigger_charging">Charging</string>
+    <string name="trigger_screen">Screen</string>
+    <string name="trigger_wifi">Wi-Fi</string>
+    <string name="trigger_bt">Bluetooth</string>
+    <string name="trigger_battery">Battery</string>
+    <string name="trigger_headset">Headset</string>
+    <string name="trigger_orientation">Orientation</string>
+    <string name="trigger_time">Time</string>
+
+    <string name="trigger_app_enter">When opening app</string>
+    <string name="trigger_app_exit">When leaving app</string>
+    <string name="trigger_app_enter_multi">Enter any selected app</string>
+    <string name="trigger_app_exit_multi">Leave all selected apps</string>
+    <string name="trigger_pick_apps">Select apps</string>
+    <string name="trigger_selected_apps">%1$d selected: %2$s</string>
+    <string name="trigger_state_on">On / Connected</string>
+    <string name="trigger_state_off">Off / Disconnected</string>
+    <string name="trigger_charging_on">Power connected</string>
+    <string name="trigger_charging_off">Power disconnected</string>
+    <string name="trigger_screen_on">Screen on</string>
+    <string name="trigger_screen_off">Screen off</string>
+    <string name="trigger_headset_on">Plugged in</string>
+    <string name="trigger_headset_off">Unplugged</string>
+    <string name="trigger_orient_land">Landscape</string>
+    <string name="trigger_orient_port">Portrait</string>
+    <string name="trigger_battery_above">Battery ≥ %1$d%%</string>
+    <string name="trigger_battery_below">Battery ≤ %1$d%%</string>
+    <string name="trigger_wifi_ssid_hint">Wi-Fi SSID (blank for any)</string>
+    <string name="trigger_wifi_detect">Read current Wi-Fi</string>
+    <string name="trigger_bt_name_hint">Bluetooth name or MAC (blank for any)</string>
+    <string name="trigger_bt_detect">Read connected BT</string>
+    <string name="trigger_time_hint">Time range, e.g. 23:00-07:00</string>
+    <string name="trigger_extra_and_title">Extra Conditions (AND)</string>
+    <string name="trigger_add_extra">Add AND condition</string>
+
+    <!-- Ordered Action Pipeline -->
+    <string name="editor_section_actions">Actions</string>
+    <string name="editor_drag_hint">Drag the left handle to reorder</string>
+    <string name="editor_add_action">Add Action</string>
+    <string name="editor_actions_empty">Tap below to add an action</string>
+    <string name="editor_section_revert_cmd">Exit Shell Command (Optional)</string>
+    <string name="editor_revert_cmd_hint">su command executed on revert</string>
+    <string name="action_move_up">Move up</string>
+    <string name="action_move_down">Move down</string>
+    <string name="action_remove">Remove</string>
+    <string name="action_drag_handle">Drag to reorder</string>
+
+    <!-- Action Step Types -->
+    <string name="step_qs_tile">QS Tile</string>
+    <string name="step_kill_apps">Stop Apps</string>
+    <string name="step_dnd">Do Not Disturb</string>
+    <string name="step_refresh_rate">Refresh Rate</string>
+    <string name="step_brightness">Brightness</string>
+    <string name="step_media_volume">Media Volume</string>
+    <string name="step_wifi">Wi-Fi</string>
+    <string name="step_mobile_data">Mobile Data</string>
+    <string name="step_airplane">Airplane Mode</string>
+    <string name="step_battery_saver">Battery Saver</string>
+    <string name="step_dark_mode">Dark Mode</string>
+    <string name="step_auto_rotate">Auto-Rotate</string>
+    <string name="step_vibrate">Vibration</string>
+    <string name="step_custom_shell">Root Shell</string>
+    <string name="step_delay">Delay</string>
+
+    <string name="dnd_off">Off</string>
+    <string name="dnd_priority">Priority</string>
+    <string name="dnd_total">Silence</string>
+    <string name="state_enable">On</string>
+    <string name="state_disable">Off</string>
+    <string name="dark_on">Dark</string>
+    <string name="dark_off">Light</string>
+    <string name="rotate_on">Auto</string>
+    <string name="rotate_off">Portrait</string>
+    <string name="pick_tile_btn">Select tile</string>
+    <string name="pick_kill_apps_btn">Select apps</string>
+    <string name="custom_shell_hint">Enter su command or scan .sh scripts</string>
+    <string name="scan_local_scripts">Scan Scripts</string>
+    <string name="brightness_hbm_toggle">Override Limit · Peak Brightness (HBM)</string>
+    <string name="brightness_hbm_badge">HBM Peak</string>
+    <string name="brightness_hbm_warning">High power &amp; heat; auto-reverts on exit or screen off</string>
+    <string name="brightness_slider_cd">Screen brightness percentage slider</string>
+    <string name="media_volume_slider_cd">Media volume percentage slider</string>
+
+    <!-- Pickers & Script Scanner -->
+    <string name="picker_apps_title">Select Apps</string>
+    <string name="picker_search_hint">Search app or package</string>
+    <string name="picker_show_system">Show system apps</string>
+    <string name="picker_tiles_title">Select Quick Settings Tile</string>
+    <string name="picker_tiles_search">Search tile or app</string>
+    <string name="scanner_title">Local Scripts</string>
+    <string name="scanner_rescan">Rescan</string>
+    <string name="scanner_search_hint">Search filename or path</string>
+    <string name="scanner_scanning">Scanning…</string>
+    <string name="scanner_empty">No .sh scripts found</string>
+    <string name="scanner_preview_title">Read-only preview</string>
+    <string name="scanner_use_path">Use Path</string>
+    <string name="scanner_insert_content">Insert Text</string>
+    <string name="scanner_cat_all">All</string>
+    <string name="scanner_cat_storage">Storage</string>
+    <string name="scanner_cat_adb">ADB / Modules</string>
+
+    <!-- Console Screen -->
+    <string name="console_cleanup_title">Background Cleanup</string>
+    <string name="console_cleanup_desc">Force-stop third-party apps and drop caches</string>
+    <string name="console_cleanup_btn">Clean Now</string>
+    <string name="console_cleanup_running">Cleaning…</string>
+    <string name="console_cleanup_done">Cleanup finished</string>
+    <string name="console_shell_title">Root Shell</string>
+    <string name="console_shell_hint">Enter su command, e.g. dumpsys battery</string>
+    <string name="console_shell_run">Run</string>
+    <string name="console_shell_running">Running…</string>
+    <string name="console_shell_idle">Ready for input</string>
+    <string name="console_copy">Copy</string>
+    <string name="console_clear">Clear</string>
+    <string name="copied_to_clipboard">Copied</string>
+
+    <!-- Logs Screen -->
+    <string name="logs_search_hint">Search tag or message</string>
+    <string name="logs_filter_all">All</string>
+    <string name="logs_filter_info">INFO</string>
+    <string name="logs_filter_warn">WARN</string>
+    <string name="logs_filter_error">ERROR</string>
+    <string name="logs_autoscroll_on">Auto-scroll</string>
+    <string name="logs_autoscroll_off">Paused</string>
+    <string name="logs_export">Export</string>
+    <string name="logs_clear">Clear</string>
+    <string name="logs_copy_all">Copy all</string>
+    <string name="logs_empty">No log entries</string>
+    <string name="logs_exported">Exported: %1$s</string>
+    <string name="logs_export_failed">Export failed</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_group_core">Core &amp; Feedback</string>
+    <string name="settings_advanced_title">Advanced Mode</string>
+    <string name="settings_advanced_desc">Multi-app sets, specific Wi-Fi/BT &amp; AND rules</string>
+    <string name="settings_haptic_title">Haptic Feedback</string>
+    <string name="settings_haptic_desc">Tactile ticks for tabs, switches, sliders &amp; drag</string>
+
+    <string name="settings_group_appearance">Appearance</string>
+    <string name="settings_theme_mode">Theme Mode</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_color_palette">Color Palette</string>
+    <string name="lang_system">System</string>
+    <string name="lang_zh">简体中文</string>
+    <string name="lang_en">English</string>
+
+    <string name="theme_mode_system">System</string>
+    <string name="theme_mode_light">Light</string>
+    <string name="theme_mode_dark">Dark</string>
+
+    <string name="palette_dynamic_title">Dynamic Color</string>
+    <string name="palette_dynamic_desc">Follow system wallpaper colors</string>
+    <string name="palette_dynamic_unsupported">Requires Android 12+</string>
+    <string name="palette_dynamic_label">Dynamic</string>
+    <string name="color_google_blue">Google Blue</string>
+    <string name="color_indigo">Indigo</string>
+    <string name="color_teal">Teal</string>
+    <string name="color_amber">Amber</string>
+    <string name="color_coral">Coral</string>
+    <string name="color_sage">Sage</string>
+    <string name="color_slate">Slate</string>
+
+    <string name="settings_group_data">Data &amp; Help</string>
+    <string name="settings_export_config">Export Config</string>
+    <string name="settings_export_config_desc">Save all profiles as .json</string>
+    <string name="settings_import_config">Import Config</string>
+    <string name="settings_import_config_desc">Restore from file (v1.2.0 compatible)</string>
+    <string name="settings_tutorial">User Guide</string>
+    <string name="settings_tutorial_desc">Setup steps and feature reference</string>
+    <string name="config_exported">Exported: %1$s</string>
+    <string name="config_export_failed">Export failed</string>
+    <string name="config_import_mode_title">Import Mode</string>
+    <string name="config_import_merge">Merge (keep existing rules)</string>
+    <string name="config_import_overwrite">Overwrite (replace all rules)</string>
+    <string name="config_import_pick_saf">Choose from File Picker</string>
+    <string name="config_import_scan_dir">Scan Download/FluxCore</string>
+    <string name="config_imported">Imported %1$d rules</string>
+    <string name="config_import_failed">Parse failed</string>
+    <string name="config_no_local_files">No .json files in Download/FluxCore/</string>
+
+    <string name="settings_group_about">About</string>
+    <string name="settings_about_title">About FluxCore</string>
+    <string name="settings_about_desc">Version info and source links</string>
+
+    <!-- Tutorial Screen -->
+    <string name="tutorial_title">User Guide</string>
+    <string name="tut_section_quickstart">Quick Start</string>
+    <string name="tut_section_advanced">Advanced</string>
+
+    <string name="tut_1_title">Root Access</string>
+    <string name="tut_1_path">Root Manager → Allow su</string>
+    <string name="tut_1_p1">Grant su permission in Magisk, KernelSU, or APatch on first launch.</string>
+    <string name="tut_1_p2">Return to Profiles and confirm the top status card turns active.</string>
+
+    <string name="tut_2_title">Background Keep-Alive</string>
+    <string name="tut_2_path_1">Battery → Unrestricted</string>
+    <string name="tut_2_path_2">Recents → Lock App</string>
+    <string name="tut_2_p1">Disable battery optimization so triggers keep running while screen is off.</string>
+    <string name="tut_2_p2">Lock FluxCore in Android Recents to avoid background cleanup.</string>
+    <string name="tut_btn_app_info">Open App Info</string>
+
+    <string name="tut_3_title">Action Order &amp; Peak Brightness</string>
+    <string name="tut_3_path">Action Card → Drag Left Handle</string>
+    <string name="tut_3_p1">Drag the left handle to reorder steps and insert optional delays.</string>
+    <string name="tut_3_p2">Auto-revert snapshots and restores volume, brightness, and refresh rate.</string>
+    <string name="tut_3_p3">HBM peak brightness always reverts on rule exit or screen off.</string>
+
+    <string name="tut_4_title">Tiles &amp; Shortcuts</string>
+    <string name="tut_4_path">Rule Menu → Quick Settings / Home Screen</string>
+    <string name="tut_4_p1">Bind up to 6 Quick Settings tile slots for one-tap toggling.</string>
+    <string name="tut_4_p2">Pin Home Screen shortcuts to run or revert rules without opening the app.</string>
+
+    <string name="tut_5_title">Local Scripts &amp; Live Logs</string>
+    <string name="tut_5_path">Shell Action → Scan Scripts</string>
+    <string name="tut_5_p1">Browse local .sh files with read-only preview before referencing or inserting.</string>
+    <string name="tut_5_p2">Filter events and HBM sysfs node hits in real time from the Logs tab.</string>
+
+    <string name="tut_6_title">Backup &amp; Upgrades</string>
+    <string name="tut_6_path">Settings → Export / Import Config</string>
+    <string name="tut_6_p1">Back up rules as .json with merge or overwrite restore (v1.2.0 compatible).</string>
+    <string name="tut_6_p2">After installing an update, force-stop and reopen once to reload the service.</string>
+
+    <!-- About Screen -->
+    <string name="about_tagline">Root system automation utility</string>
+    <string name="about_license_note">MIT License · Independently maintained fork</string>
+    <string name="about_link_repo">Project Repository (GitHub)</string>
+    <string name="about_link_repo_sub">LntanoMinecraft · Maintainer</string>
+    <string name="about_link_maintainer_coolapk">Maintainer Coolapk</string>
+    <string name="about_link_maintainer_coolapk_sub">Lntano</string>
+    <string name="about_link_upstream">Upstream Repository (GitHub)</string>
+    <string name="about_link_upstream_sub">Original author MOUAJMD · MIT</string>
+    <string name="about_link_author_coolapk">Original Author Coolapk</string>
+    <string name="about_link_author_coolapk_sub">@C_AJMD_W</string>
+
+    <!-- Foreground Notification -->
+    <string name="notif_channel_name">Background Service</string>
+    <string name="notif_title">FluxCore Active</string>
+    <string name="notif_body">Monitoring system triggers</string>
+</resources>

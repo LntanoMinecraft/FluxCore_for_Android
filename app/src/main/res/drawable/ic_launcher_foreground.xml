@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Vertical anchor stream (35..47, 34..74, r=6) -->
+    <path android:pathData="M41,34L41,34A6,6 0,0 1,47 40L47,68A6,6 0,0 1,41 74L41,74A6,6 0,0 1,35 68L35,40A6,6 0,0 1,41 34Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="35"
+                android:startY="34"
+                android:endX="47"
+                android:endY="74"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF4DABF7" />
+                <item android:offset="0.55" android:color="#FF4285F4" />
+                <item android:offset="1.0" android:color="#FF676BFF" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Upper flowing ribbon overlapping vertical stream (35..73, 34..46, r=6) -->
+    <path
+        android:fillAlpha="0.92"
+        android:pathData="M41,34L67,34A6,6 0,0 1,73 40L73,40A6,6 0,0 1,67 46L41,46A6,6 0,0 1,35 40L35,40A6,6 0,0 1,41 34Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="35"
+                android:startY="34"
+                android:endX="73"
+                android:endY="46"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF5CC8FF" />
+                <item android:offset="0.52" android:color="#FF4285F4" />
+                <item android:offset="1.0" android:color="#FF7C5CFF" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Middle flowing branch (35..63, 50..61, r=5.5) -->
+    <path
+        android:fillAlpha="0.88"
+        android:pathData="M40.5,50L57.5,50A5.5,5.5 0,0 1,63 55.5L63,55.5A5.5,5.5 0,0 1,57.5 61L40.5,61A5.5,5.5 0,0 1,35 55.5L35,55.5A5.5,5.5 0,0 1,40.5 50Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="35"
+                android:startY="50"
+                android:endX="63"
+                android:endY="61"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF4DABF7" />
+                <item android:offset="0.5" android:color="#FF4285F4" />
+                <item android:offset="1.0" android:color="#FF7C5CFF" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Nexus hub orb (center 66.5, 67.5, r=6.5) -->
+    <path android:pathData="M66.5,61A6.5,6.5 0,1 1,66.5 74A6.5,6.5 0,1 1,66.5 61Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="60"
+                android:startY="61"
+                android:endX="73"
+                android:endY="74"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FF4DABF7" />
+                <item android:offset="1.0" android:color="#FF7C5CFF" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

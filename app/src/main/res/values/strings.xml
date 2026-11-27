@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">流枢</string>
+
+    <!-- Navigation Tabs -->
+    <string name="tab_profiles">情境</string>
+    <string name="tab_console">控制台</string>
+    <string name="tab_logs">日志</string>
+    <string name="tab_settings">设置</string>
+
+    <!-- Real-time Status Card -->
+    <string name="status_ready_title">Root 已就绪 · 监听中</string>
+    <string name="status_ready_sub">电池无限制 · 勿扰已授权</string>
+    <string name="status_missing_title">运行环境未就绪</string>
+    <string name="status_check_root_ok">Root 已授权</string>
+    <string name="status_check_root_missing">缺少 Root</string>
+    <string name="status_check_battery_ok">电池无限制</string>
+    <string name="status_check_battery_missing">电池受限</string>
+    <string name="status_check_dnd_ok">勿扰已授权</string>
+    <string name="status_check_dnd_missing">缺少勿扰权限</string>
+    <string name="status_check_service_ok">监听中</string>
+    <string name="status_check_service_missing">服务未启动</string>
+    <string name="status_action_request_root">请求授权</string>
+    <string name="status_action_battery_settings">电池设置</string>
+    <string name="status_action_dnd_settings">去设置勿扰</string>
+    <string name="status_action_start_service">启动服务</string>
+    <string name="status_recheck_cd">重新检测运行状态</string>
+
+    <!-- Profiles Screen -->
+    <string name="action_new_profile">新建情境</string>
+    <string name="empty_profiles_title">暂无情境规则</string>
+    <string name="empty_profiles_desc">点击右下角添加第一条规则</string>
+    <string name="btn_trigger_now">运行</string>
+    <string name="btn_revert_now">还原</string>
+    <string name="menu_add_qs_tile">添加到控制中心</string>
+    <string name="menu_add_shortcut">添加到主屏幕</string>
+    <string name="menu_edit_rule">编辑</string>
+    <string name="menu_delete_rule">删除</string>
+    <string name="rule_active_badge">运行中</string>
+    <string name="rule_idle_badge">待命</string>
+    <string name="rule_steps_count">%1$d 步</string>
+    <string name="rule_no_actions">未配置动作</string>
+    <string name="dialog_delete_title">删除情境</string>
+    <string name="dialog_delete_msg">删除「%1$s」后，关联的控制中心磁贴与桌面快捷方式将同步失效。</string>
+    <string name="dialog_shortcut_title">添加到主屏幕</string>
+    <string name="dialog_shortcut_hint">快捷方式名称</string>
+    <string name="btn_cancel">取消</string>
+    <string name="btn_confirm">确定</string>
+    <string name="btn_save">保存</string>
+    <string name="btn_delete">删除</string>
+    <string name="btn_back">返回</string>
+    <string name="btn_more">更多</string>
+
+    <!-- QS Tile & Shortcut Feedback -->
+    <string name="tile_added_success">已添加到控制中心</string>
+    <string name="tile_already_added">磁贴已在控制中心</string>
+    <string name="tile_slots_full">已达 6 个磁贴上限，请先删除旧规则</string>
+    <string name="tile_legacy_guide">磁贴已启用，请在控制中心编辑栏拖入「%1$s」</string>
+    <string name="shortcut_requested">已请求固定到主屏幕</string>
+    <string name="shortcut_unsupported">当前桌面不支持固定快捷方式</string>
+    <string name="shortcut_activated">已激活「%1$s」</string>
+    <string name="shortcut_reverted">已还原「%1$s」</string>
+    <string name="shortcut_missing">对应情境已删除</string>
+
+    <!-- Rule Editor -->
+    <string name="editor_title_new">新建情境</string>
+    <string name="editor_title_edit">编辑情境</string>
+    <string name="editor_section_basic">基础信息</string>
+    <string name="editor_rule_name_label">情境名称</string>
+    <string name="editor_rule_name_default">未命名情境</string>
+    <string name="editor_auto_revert">退出自动还原</string>
+    <string name="editor_auto_revert_desc">离开条件或关闭时恢复原系统状态</string>
+
+    <string name="editor_section_trigger">触发条件</string>
+    <string name="trigger_manual">仅手动</string>
+    <string name="trigger_app">应用切换</string>
+    <string name="trigger_charging">充电状态</string>
+    <string name="trigger_screen">亮屏/息屏</string>
+    <string name="trigger_wifi">Wi-Fi</string>
+    <string name="trigger_bt">蓝牙</string>
+    <string name="trigger_battery">电量阈值</string>
+    <string name="trigger_headset">有线耳机</string>
+    <string name="trigger_orientation">横竖屏</string>
+    <string name="trigger_time">时间段</string>
+
+    <string name="trigger_app_enter">进入前台时</string>
+    <string name="trigger_app_exit">退出前台时</string>
+    <string name="trigger_app_enter_multi">打开任意所选应用</string>
+    <string name="trigger_app_exit_multi">退出全部所选应用</string>
+    <string name="trigger_pick_apps">选择应用</string>
+    <string name="trigger_selected_apps">已选 %1$d 个：%2$s</string>
+    <string name="trigger_state_on">开启 / 连接</string>
+    <string name="trigger_state_off">关闭 / 断开</string>
+    <string name="trigger_charging_on">接入电源</string>
+    <string name="trigger_charging_off">断开电源</string>
+    <string name="trigger_screen_on">亮屏</string>
+    <string name="trigger_screen_off">息屏</string>
+    <string name="trigger_headset_on">插入耳机</string>
+    <string name="trigger_headset_off">拔出耳机</string>
+    <string name="trigger_orient_land">横屏</string>
+    <string name="trigger_orient_port">竖屏</string>
+    <string name="trigger_battery_above">电量 ≥ %1$d%%</string>
+    <string name="trigger_battery_below">电量 ≤ %1$d%%</string>
+    <string name="trigger_wifi_ssid_hint">Wi-Fi SSID（留空匹配任意）</string>
+    <string name="trigger_wifi_detect">读取当前 Wi-Fi</string>
+    <string name="trigger_bt_name_hint">蓝牙名称或 MAC（留空匹配任意）</string>
+    <string name="trigger_bt_detect">读取已连蓝牙</string>
+    <string name="trigger_time_hint">时间范围，如 23:00-07:00</string>
+    <string name="trigger_extra_and_title">附加条件（AND）</string>
+    <string name="trigger_add_extra">添加附加条件</string>
+
+    <!-- Ordered Action Pipeline -->
+    <string name="editor_section_actions">执行动作</string>
+    <string name="editor_drag_hint">按住左侧手柄拖拽排序</string>
+    <string name="editor_add_action">添加动作</string>
+    <string name="editor_actions_empty">点击下方添加执行动作</string>
+    <string name="editor_section_revert_cmd">退出还原指令（可选）</string>
+    <string name="editor_revert_cmd_hint">退出情境时执行的 su 指令</string>
+    <string name="action_move_up">上移</string>
+    <string name="action_move_down">下移</string>
+    <string name="action_remove">移除</string>
+    <string name="action_drag_handle">拖拽排序</string>
+
+    <!-- Action Step Types -->
+    <string name="step_qs_tile">切换磁贴</string>
+    <string name="step_kill_apps">停止应用</string>
+    <string name="step_dnd">勿扰模式</string>
+    <string name="step_refresh_rate">锁定刷新率</string>
+    <string name="step_brightness">屏幕亮度</string>
+    <string name="step_media_volume">媒体音量</string>
+    <string name="step_wifi">Wi-Fi</string>
+    <string name="step_mobile_data">移动数据</string>
+    <string name="step_airplane">飞行模式</string>
+    <string name="step_battery_saver">省电模式</string>
+    <string name="step_dark_mode">深色模式</string>
+    <string name="step_auto_rotate">自动旋转</string>
+    <string name="step_vibrate">震动反馈</string>
+    <string name="step_custom_shell">Root Shell</string>
+    <string name="step_delay">延迟等待</string>
+
+    <string name="dnd_off">关闭</string>
+    <string name="dnd_priority">仅重要</string>
+    <string name="dnd_total">完全静音</string>
+    <string name="state_enable">开启</string>
+    <string name="state_disable">关闭</string>
+    <string name="dark_on">深色</string>
+    <string name="dark_off">浅色</string>
+    <string name="rotate_on">允许旋转</string>
+    <string name="rotate_off">锁定竖屏</string>
+    <string name="pick_tile_btn">选择磁贴</string>
+    <string name="pick_kill_apps_btn">选择应用</string>
+    <string name="custom_shell_hint">输入 su 指令或搜索本地 .sh 脚本</string>
+    <string name="scan_local_scripts">搜索本地脚本</string>
+    <string name="brightness_hbm_toggle">突破上限 · 激发峰值亮度（HBM）</string>
+    <string name="brightness_hbm_badge">HBM 峰值</string>
+    <string name="brightness_hbm_warning">高功耗与发热，退出情境或息屏自动还原</string>
+    <string name="brightness_slider_cd">屏幕亮度百分比滑块</string>
+    <string name="media_volume_slider_cd">媒体音量百分比滑块</string>
+
+    <!-- Pickers & Script Scanner -->
+    <string name="picker_apps_title">选择应用</string>
+    <string name="picker_search_hint">搜索应用名或包名</string>
+    <string name="picker_show_system">显示系统应用</string>
+    <string name="picker_tiles_title">选择控制中心磁贴</string>
+    <string name="picker_tiles_search">搜索磁贴或应用</string>
+    <string name="scanner_title">本地脚本</string>
+    <string name="scanner_rescan">重新扫描</string>
+    <string name="scanner_search_hint">搜索脚本名或路径</string>
+    <string name="scanner_scanning">正在扫描…</string>
+    <string name="scanner_empty">未找到 .sh 脚本</string>
+    <string name="scanner_preview_title">只读预览</string>
+    <string name="scanner_use_path">引用路径</string>
+    <string name="scanner_insert_content">填入内容</string>
+    <string name="scanner_cat_all">全部</string>
+    <string name="scanner_cat_storage">存储目录</string>
+    <string name="scanner_cat_adb">ADB / 模块</string>
+
+    <!-- Console Screen -->
+    <string name="console_cleanup_title">后台清理</string>
+    <string name="console_cleanup_desc">停止第三方后台应用并释放页面缓存</string>
+    <string name="console_cleanup_btn">立即清理</string>
+    <string name="console_cleanup_running">清理中…</string>
+    <string name="console_cleanup_done">后台清理完成</string>
+    <string name="console_shell_title">Root 终端</string>
+    <string name="console_shell_hint">输入 su 指令，如 dumpsys battery</string>
+    <string name="console_shell_run">运行</string>
+    <string name="console_shell_running">执行中…</string>
+    <string name="console_shell_idle">等待输入指令</string>
+    <string name="console_copy">复制</string>
+    <string name="console_clear">清空</string>
+    <string name="copied_to_clipboard">已复制</string>
+
+    <!-- Logs Screen -->
+    <string name="logs_search_hint">搜索标签或日志</string>
+    <string name="logs_filter_all">全部</string>
+    <string name="logs_filter_info">信息</string>
+    <string name="logs_filter_warn">警告</string>
+    <string name="logs_filter_error">错误</string>
+    <string name="logs_autoscroll_on">跟随最新</string>
+    <string name="logs_autoscroll_off">暂停滚动</string>
+    <string name="logs_export">导出日志</string>
+    <string name="logs_clear">清空日志</string>
+    <string name="logs_copy_all">复制全部</string>
+    <string name="logs_empty">暂无日志</string>
+    <string name="logs_exported">已导出：%1$s</string>
+    <string name="logs_export_failed">导出失败</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_group_core">核心与反馈</string>
+    <string name="settings_advanced_title">进阶模式</string>
+    <string name="settings_advanced_desc">多应用集合、指定 Wi-Fi/蓝牙与 AND 条件</string>
+    <string name="settings_haptic_title">触摸反馈</string>
+    <string name="settings_haptic_desc">导航栏、开关、滑块与拖拽的震动反馈</string>
+
+    <string name="settings_group_appearance">外观</string>
+    <string name="settings_theme_mode">深浅色模式</string>
+    <string name="settings_language">语言</string>
+    <string name="settings_color_palette">主题色盘</string>
+    <string name="lang_system">跟随系统</string>
+    <string name="lang_zh">简体中文</string>
+    <string name="lang_en">English</string>
+
+    <string name="theme_mode_system">跟随系统</string>
+    <string name="theme_mode_light">浅色</string>
+    <string name="theme_mode_dark">深色</string>
+
+    <string name="palette_dynamic_title">动态取色</string>
+    <string name="palette_dynamic_desc">跟随系统壁纸配色</string>
+    <string name="palette_dynamic_unsupported">需 Android 12 及以上版本</string>
+    <string name="palette_dynamic_label">动态取色</string>
+    <string name="color_google_blue">谷歌蓝</string>
+    <string name="color_indigo">靛紫</string>
+    <string name="color_teal">青绿</string>
+    <string name="color_amber">琥珀</string>
+    <string name="color_coral">珊瑚红</string>
+    <string name="color_sage">鼠尾草</string>
+    <string name="color_slate">暖灰</string>
+
+    <string name="settings_group_data">数据与帮助</string>
+    <string name="settings_export_config">导出配置</string>
+    <string name="settings_export_config_desc">保存全部规则为 .json 文件</string>
+    <string name="settings_import_config">导入配置</string>
+    <string name="settings_import_config_desc">从文件恢复，兼容 v1.2.0 备份</string>
+    <string name="settings_tutorial">使用教程</string>
+    <string name="settings_tutorial_desc">权限配置与常用功能说明</string>
+    <string name="config_exported">已导出：%1$s</string>
+    <string name="config_export_failed">导出失败</string>
+    <string name="config_import_mode_title">导入方式</string>
+    <string name="config_import_merge">合并追加（保留现有规则）</string>
+    <string name="config_import_overwrite">覆盖恢复（替换全部规则）</string>
+    <string name="config_import_pick_saf">从文件选择器导入</string>
+    <string name="config_import_scan_dir">从 Download/FluxCore 导入</string>
+    <string name="config_imported">已导入 %1$d 条规则</string>
+    <string name="config_import_failed">解析失败</string>
+    <string name="config_no_local_files">Download/FluxCore/ 中无 .json 文件</string>
+
+    <string name="settings_group_about">关于</string>
+    <string name="settings_about_title">关于流枢</string>
+    <string name="settings_about_desc">版本信息与开源仓库</string>
+
+    <!-- Tutorial Screen -->
+    <string name="tutorial_title">使用教程</string>
+    <string name="tut_section_quickstart">快速上手</string>
+    <string name="tut_section_advanced">进阶功能</string>
+
+    <string name="tut_1_title">Root 授权</string>
+    <string name="tut_1_path">授权管理器 → 允许 su</string>
+    <string name="tut_1_p1">首次启动时在 Magisk / KernelSU / APatch 中允许 Root 权限。</string>
+    <string name="tut_1_p2">返回主页后顶部卡片变为「Root 已就绪 · 监听中」即生效。</string>
+
+    <string name="tut_2_title">后台保活</string>
+    <string name="tut_2_path_1">电池优化 → 无限制</string>
+    <string name="tut_2_path_2">最近任务 → 锁定</string>
+    <string name="tut_2_p1">关闭本应用的电池优化，避免息屏后后台监听被系统冻结。</string>
+    <string name="tut_2_p2">在系统最近任务卡片上锁，可显著降低后台被清理的概率。</string>
+    <string name="tut_btn_app_info">打开应用信息</string>
+
+    <string name="tut_3_title">动作排序与峰值亮度</string>
+    <string name="tut_3_path">动作卡片 → 左侧手柄拖拽</string>
+    <string name="tut_3_p1">按住左侧手柄可上下调整动作执行顺序，支持插入步骤延迟。</string>
+    <string name="tut_3_p2">开启「退出自动还原」会在离开条件时恢复音量、亮度与刷新率。</string>
+    <string name="tut_3_p3">屏幕亮度开启 HBM 峰值后，退出情境或息屏会强制还原以防过热。</string>
+
+    <string name="tut_4_title">磁贴与快捷方式</string>
+    <string name="tut_4_path">规则菜单 → 添加到控制中心 / 主屏幕</string>
+    <string name="tut_4_p1">支持绑定最多 6 个控制中心磁贴，下拉即可直接激活或还原。</string>
+    <string name="tut_4_p2">固定为桌面快捷方式后，无需打开主界面即可静默切换规则。</string>
+
+    <string name="tut_5_title">本地脚本与实时日志</string>
+    <string name="tut_5_path">Shell 动作 → 搜索本地脚本</string>
+    <string name="tut_5_p1">可扫描存储与模块目录下的 .sh 脚本，只读预览后再引用或填入。</string>
+    <string name="tut_5_p2">在「日志」页按级别筛选事件与节点命中记录，支持复制和导出。</string>
+
+    <string name="tut_6_title">配置备份与升级</string>
+    <string name="tut_6_path">设置 → 导出 / 导入配置</string>
+    <string name="tut_6_p1">所有规则可导出为 .json 文件，支持合并或覆盖恢复（兼容 v1.2.0）。</string>
+    <string name="tut_6_p2">覆盖安装新版本后，建议强行停止一次再重新打开以重载后台服务。</string>
+
+    <!-- About Screen -->
+    <string name="about_tagline">Root 系统自动化工具</string>
+    <string name="about_license_note">MIT 开源协议 · 上游独立维护分支</string>
+    <string name="about_link_repo">当前项目仓库（GitHub）</string>
+    <string name="about_link_repo_sub">LntanoMinecraft · 独立维护</string>
+    <string name="about_link_maintainer_coolapk">当前维护者酷安</string>
+    <string name="about_link_maintainer_coolapk_sub">Lntano</string>
+    <string name="about_link_upstream">上游原项目仓库（GitHub）</string>
+    <string name="about_link_upstream_sub">原作者 MOUAJMD · MIT 协议</string>
+    <string name="about_link_author_coolapk">原作者酷安主页</string>
+    <string name="about_link_author_coolapk_sub">@C_AJMD_W</string>
+
+    <!-- Foreground Notification -->
+    <string name="notif_channel_name">后台监听服务</string>
+    <string name="notif_title">流枢运行中</string>
+    <string name="notif_body">正在监听系统触发条件</string>
+</resources>

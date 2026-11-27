@@ -1,0 +1,487 @@
+package com.mouajmd.fluxcore.ui.theme
+
+import androidx.annotation.StringRes
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Immutable
+import androidx.compose.ui.graphics.Color
+import com.mouajmd.fluxcore.R
+
+@Immutable
+data class ThemePaletteSpec(
+    val index: Int,
+    @param:StringRes val nameRes: Int,
+    val swatchColor: Color,
+    val innerDotColor: Color,
+    val lightScheme: ColorScheme,
+    val darkScheme: ColorScheme
+)
+
+object FluxPalettes {
+
+    private val sharedLightError = Color(0xFFBA1A1A)
+    private val sharedLightOnError = Color(0xFFFFFFFF)
+    private val sharedLightErrorContainer = Color(0xFFFFDAD6)
+    private val sharedLightOnErrorContainer = Color(0xFF410002)
+
+    private val sharedDarkError = Color(0xFFFFB4AB)
+    private val sharedDarkOnError = Color(0xFF690005)
+    private val sharedDarkErrorContainer = Color(0xFF8C1D18)
+    private val sharedDarkOnErrorContainer = Color(0xFFFFDAD6)
+
+    // 0. Google Blue
+    private val googleBlueLight = lightColorScheme(
+        primary = Color(0xFF1A73E8),
+        onPrimary = Color(0xFFFFFFFF),
+        primaryContainer = Color(0xFFD3E3FD),
+        onPrimaryContainer = Color(0xFF041E49),
+        secondary = Color(0xFF535E78),
+        onSecondary = Color(0xFFFFFFFF),
+        secondaryContainer = Color(0xFFD7E2FF),
+        onSecondaryContainer = Color(0xFF101B32),
+        tertiary = Color(0xFF6B538C),
+        onTertiary = Color(0xFFFFFFFF),
+        tertiaryContainer = Color(0xFFEDDCFF),
+        onTertiaryContainer = Color(0xFF250E44),
+        error = sharedLightError,
+        onError = sharedLightOnError,
+        errorContainer = sharedLightErrorContainer,
+        onErrorContainer = sharedLightOnErrorContainer,
+        background = Color(0xFFF6F8FC),
+        onBackground = Color(0xFF181B20),
+        surface = Color(0xFFF6F8FC),
+        onSurface = Color(0xFF181B20),
+        surfaceVariant = Color(0xFFE0E3ED),
+        onSurfaceVariant = Color(0xFF444750),
+        outline = Color(0xFF747780),
+        outlineVariant = Color(0xFFC4C7D1),
+        surfaceContainerLowest = Color(0xFFFFFFFF),
+        surfaceContainerLow = Color(0xFFF0F3F8),
+        surfaceContainer = Color(0xFFE9EDF5),
+        surfaceContainerHigh = Color(0xFFDFE5F0),
+        surfaceContainerHighest = Color(0xFFD5DCE9)
+    )
+
+    private val googleBlueDark = darkColorScheme(
+        primary = Color(0xFFA8C7FA),
+        onPrimary = Color(0xFF062E6F),
+        primaryContainer = Color(0xFF0D47A1),
+        onPrimaryContainer = Color(0xFFD3E3FD),
+        secondary = Color(0xFFBCC7E3),
+        onSecondary = Color(0xFF253048),
+        secondaryContainer = Color(0xFF394662),
+        onSecondaryContainer = Color(0xFFDCE6FF),
+        tertiary = Color(0xFFD7BAFB),
+        onTertiary = Color(0xFF3B255B),
+        tertiaryContainer = Color(0xFF523C73),
+        onTertiaryContainer = Color(0xFFEDDCFF),
+        error = sharedDarkError,
+        onError = sharedDarkOnError,
+        errorContainer = sharedDarkErrorContainer,
+        onErrorContainer = sharedDarkOnErrorContainer,
+        background = Color(0xFF0E1116),
+        onBackground = Color(0xFFE6E8EE),
+        surface = Color(0xFF0E1116),
+        onSurface = Color(0xFFE6E8EE),
+        surfaceVariant = Color(0xFF444854),
+        onSurfaceVariant = Color(0xFFC2C6D2),
+        outline = Color(0xFF8C909C),
+        outlineVariant = Color(0xFF444854),
+        surfaceContainerLowest = Color(0xFF090B0F),
+        surfaceContainerLow = Color(0xFF151921),
+        surfaceContainer = Color(0xFF1B202A),
+        surfaceContainerHigh = Color(0xFF262D3B),
+        surfaceContainerHighest = Color(0xFF323B4C)
+    )
+
+    // 1. Indigo Violet
+    private val indigoLight = lightColorScheme(
+        primary = Color(0xFF5B4BDB),
+        onPrimary = Color(0xFFFFFFFF),
+        primaryContainer = Color(0xFFE4DFFF),
+        onPrimaryContainer = Color(0xFF180065),
+        secondary = Color(0xFF5E5C71),
+        onSecondary = Color(0xFFFFFFFF),
+        secondaryContainer = Color(0xFFE4DFF9),
+        onSecondaryContainer = Color(0xFF1B192C),
+        tertiary = Color(0xFF7B5266),
+        onTertiary = Color(0xFFFFFFFF),
+        tertiaryContainer = Color(0xFFFFD8E8),
+        onTertiaryContainer = Color(0xFF301122),
+        error = sharedLightError,
+        onError = sharedLightOnError,
+        errorContainer = sharedLightErrorContainer,
+        onErrorContainer = sharedLightOnErrorContainer,
+        background = Color(0xFFFAF7FF),
+        onBackground = Color(0xFF1B1B22),
+        surface = Color(0xFFFAF7FF),
+        onSurface = Color(0xFF1B1B22),
+        surfaceVariant = Color(0xFFE5E1ED),
+        onSurfaceVariant = Color(0xFF474650),
+        outlineVariant = Color(0xFFC8C5D1),
+        surfaceContainerLowest = Color(0xFFFFFFFF),
+        surfaceContainerLow = Color(0xFFF3EFFA),
+        surfaceContainer = Color(0xFFECE7F5),
+        surfaceContainerHigh = Color(0xFFE2DCEE),
+        surfaceContainerHighest = Color(0xFFD8D1E6)
+    )
+
+    private val indigoDark = darkColorScheme(
+        primary = Color(0xFFC6BFFF),
+        onPrimary = Color(0xFF2B139F),
+        primaryContainer = Color(0xFF4331C2),
+        onPrimaryContainer = Color(0xFFE4DFFF),
+        secondary = Color(0xFFC7C3DC),
+        onSecondary = Color(0xFF302E41),
+        secondaryContainer = Color(0xFF45425B),
+        onSecondaryContainer = Color(0xFFE7E2FC),
+        tertiary = Color(0xFFECB8CF),
+        onTertiary = Color(0xFF482537),
+        tertiaryContainer = Color(0xFF613B4E),
+        onTertiaryContainer = Color(0xFFFFD8E8),
+        error = sharedDarkError,
+        onError = sharedDarkOnError,
+        errorContainer = sharedDarkErrorContainer,
+        onErrorContainer = sharedDarkOnErrorContainer,
+        background = Color(0xFF101016),
+        onBackground = Color(0xFFE7E3EE),
+        surface = Color(0xFF101016),
+        onSurface = Color(0xFFE7E3EE),
+        surfaceVariant = Color(0xFF474553),
+        onSurfaceVariant = Color(0xFFC7C4D3),
+        outlineVariant = Color(0xFF474553),
+        surfaceContainerLowest = Color(0xFF0A0A0F),
+        surfaceContainerLow = Color(0xFF171720),
+        surfaceContainer = Color(0xFF1E1D29),
+        surfaceContainerHigh = Color(0xFF2A2838),
+        surfaceContainerHighest = Color(0xFF363447)
+    )
+
+    // 2. Teal Cyan
+    private val tealLight = lightColorScheme(
+        primary = Color(0xFF006A6A),
+        onPrimary = Color(0xFFFFFFFF),
+        primaryContainer = Color(0xFF9CF1F0),
+        onPrimaryContainer = Color(0xFF002020),
+        secondary = Color(0xFF4A6363),
+        onSecondary = Color(0xFFFFFFFF),
+        secondaryContainer = Color(0xFFCCE8E7),
+        onSecondaryContainer = Color(0xFF051F1F),
+        tertiary = Color(0xFF4B607C),
+        onTertiary = Color(0xFFFFFFFF),
+        tertiaryContainer = Color(0xFFD3E4FF),
+        onTertiaryContainer = Color(0xFF041C35),
+        error = sharedLightError,
+        onError = sharedLightOnError,
+        errorContainer = sharedLightErrorContainer,
+        onErrorContainer = sharedLightOnErrorContainer,
+        background = Color(0xFFF3FAF8),
+        onBackground = Color(0xFF151D1D),
+        surface = Color(0xFFF3FAF8),
+        onSurface = Color(0xFF151D1D),
+        surfaceVariant = Color(0xFFDAE5E4),
+        onSurfaceVariant = Color(0xFF3F4948),
+        outlineVariant = Color(0xFFBEC9C8),
+        surfaceContainerLowest = Color(0xFFFFFFFF),
+        surfaceContainerLow = Color(0xFFECF4F2),
+        surfaceContainer = Color(0xFFE4EEEC),
+        surfaceContainerHigh = Color(0xFFD9E5E3),
+        surfaceContainerHighest = Color(0xFFCFDCDA)
+    )
+
+    private val tealDark = darkColorScheme(
+        primary = Color(0xFF80D5D4),
+        onPrimary = Color(0xFF003737),
+        primaryContainer = Color(0xFF004F4F),
+        onPrimaryContainer = Color(0xFF9CF1F0),
+        secondary = Color(0xFFB0CCCB),
+        onSecondary = Color(0xFF1B3534),
+        secondaryContainer = Color(0xFF2F4B4B),
+        onSecondaryContainer = Color(0xFFD1ECEB),
+        tertiary = Color(0xFFB3C8E8),
+        onTertiary = Color(0xFF1C314B),
+        tertiaryContainer = Color(0xFF334863),
+        onTertiaryContainer = Color(0xFFD3E4FF),
+        error = sharedDarkError,
+        onError = sharedDarkOnError,
+        errorContainer = sharedDarkErrorContainer,
+        onErrorContainer = sharedDarkOnErrorContainer,
+        background = Color(0xFF0B1212),
+        onBackground = Color(0xFFE0E7E6),
+        surface = Color(0xFF0B1212),
+        onSurface = Color(0xFFE0E7E6),
+        surfaceVariant = Color(0xFF3E4A49),
+        onSurfaceVariant = Color(0xFFBCC9C8),
+        outlineVariant = Color(0xFF3E4A49),
+        surfaceContainerLowest = Color(0xFF070C0C),
+        surfaceContainerLow = Color(0xFF131B1B),
+        surfaceContainer = Color(0xFF192323),
+        surfaceContainerHigh = Color(0xFF243131),
+        surfaceContainerHighest = Color(0xFF2F3F3F)
+    )
+
+    // 3. Warm Amber
+    private val amberLight = lightColorScheme(
+        primary = Color(0xFF8C5000),
+        onPrimary = Color(0xFFFFFFFF),
+        primaryContainer = Color(0xFFFFDCBE),
+        onPrimaryContainer = Color(0xFF2D1600),
+        secondary = Color(0xFF735943),
+        onSecondary = Color(0xFFFFFFFF),
+        secondaryContainer = Color(0xFFFFDCBE),
+        onSecondaryContainer = Color(0xFF291806),
+        tertiary = Color(0xFF5A6238),
+        onTertiary = Color(0xFFFFFFFF),
+        tertiaryContainer = Color(0xFFDEE7B2),
+        onTertiaryContainer = Color(0xFF171E00),
+        error = sharedLightError,
+        onError = sharedLightOnError,
+        errorContainer = sharedLightErrorContainer,
+        onErrorContainer = sharedLightOnErrorContainer,
+        background = Color(0xFFFFF7F2),
+        onBackground = Color(0xFF211A14),
+        surface = Color(0xFFFFF7F2),
+        onSurface = Color(0xFF211A14),
+        surfaceVariant = Color(0xFFF2DFD1),
+        onSurfaceVariant = Color(0xFF51443A),
+        outlineVariant = Color(0xFFD5C3B6),
+        surfaceContainerLowest = Color(0xFFFFFFFF),
+        surfaceContainerLow = Color(0xFFFBEFE6),
+        surfaceContainer = Color(0xFFF4E7DC),
+        surfaceContainerHigh = Color(0xFFECDDD0),
+        surfaceContainerHighest = Color(0xFFE3D2C4)
+    )
+
+    private val amberDark = darkColorScheme(
+        primary = Color(0xFFFFB870),
+        onPrimary = Color(0xFF4A2800),
+        primaryContainer = Color(0xFF693C00),
+        onPrimaryContainer = Color(0xFFFFDCBE),
+        secondary = Color(0xFFE2C0A4),
+        onSecondary = Color(0xFF402C18),
+        secondaryContainer = Color(0xFF59422D),
+        onSecondaryContainer = Color(0xFFFFE0C5),
+        tertiary = Color(0xFFC2CB98),
+        onTertiary = Color(0xFF2C340E),
+        tertiaryContainer = Color(0xFF424A23),
+        onTertiaryContainer = Color(0xFFDEE7B2),
+        error = sharedDarkError,
+        onError = sharedDarkOnError,
+        errorContainer = sharedDarkErrorContainer,
+        onErrorContainer = sharedDarkOnErrorContainer,
+        background = Color(0xFF140F0B),
+        onBackground = Color(0xFFEEE3DA),
+        surface = Color(0xFF140F0B),
+        onSurface = Color(0xFFEEE3DA),
+        surfaceVariant = Color(0xFF524439),
+        onSurfaceVariant = Color(0xFFD6C4B6),
+        outlineVariant = Color(0xFF524439),
+        surfaceContainerLowest = Color(0xFF0E0A07),
+        surfaceContainerLow = Color(0xFF1D1712),
+        surfaceContainer = Color(0xFF241D17),
+        surfaceContainerHigh = Color(0xFF312820),
+        surfaceContainerHighest = Color(0xFF3F342A)
+    )
+
+    // 4. Coral Rose
+    private val coralLight = lightColorScheme(
+        primary = Color(0xFFB33B4E),
+        onPrimary = Color(0xFFFFFFFF),
+        primaryContainer = Color(0xFFFFD9DD),
+        onPrimaryContainer = Color(0xFF400010),
+        secondary = Color(0xFF76565A),
+        onSecondary = Color(0xFFFFFFFF),
+        secondaryContainer = Color(0xFFFFD9DD),
+        onSecondaryContainer = Color(0xFF2C1518),
+        tertiary = Color(0xFF785831),
+        onTertiary = Color(0xFFFFFFFF),
+        tertiaryContainer = Color(0xFFFFDDB7),
+        onTertiaryContainer = Color(0xFF2A1700),
+        error = sharedLightError,
+        onError = sharedLightOnError,
+        errorContainer = sharedLightErrorContainer,
+        onErrorContainer = sharedLightOnErrorContainer,
+        background = Color(0xFFFFF7F7),
+        onBackground = Color(0xFF22191A),
+        surface = Color(0xFFFFF7F7),
+        onSurface = Color(0xFF22191A),
+        surfaceVariant = Color(0xFFF3DDE0),
+        onSurfaceVariant = Color(0xFF524345),
+        outlineVariant = Color(0xFFD7C1C4),
+        surfaceContainerLowest = Color(0xFFFFFFFF),
+        surfaceContainerLow = Color(0xFFFCEEEF),
+        surfaceContainer = Color(0xFFF6E5E7),
+        surfaceContainerHigh = Color(0xFFEEDBDE),
+        surfaceContainerHighest = Color(0xFFE5D0D3)
+    )
+
+    private val coralDark = darkColorScheme(
+        primary = Color(0xFFFFB2BC),
+        onPrimary = Color(0xFF670A21),
+        primaryContainer = Color(0xFF912338),
+        onPrimaryContainer = Color(0xFFFFD9DD),
+        secondary = Color(0xFFE5BDC1),
+        onSecondary = Color(0xFF43292D),
+        secondaryContainer = Color(0xFF5C3E42),
+        onSecondaryContainer = Color(0xFFFFDCE0),
+        tertiary = Color(0xFFE9BF8F),
+        onTertiary = Color(0xFF442B07),
+        tertiaryContainer = Color(0xFF5E411C),
+        onTertiaryContainer = Color(0xFFFFDDB7),
+        error = sharedDarkError,
+        onError = sharedDarkOnError,
+        errorContainer = sharedDarkErrorContainer,
+        onErrorContainer = sharedDarkOnErrorContainer,
+        background = Color(0xFF150E0F),
+        onBackground = Color(0xFFF1E2E3),
+        surface = Color(0xFF150E0F),
+        onSurface = Color(0xFFF1E2E3),
+        surfaceVariant = Color(0xFF534345),
+        onSurfaceVariant = Color(0xFFD8C2C5),
+        outlineVariant = Color(0xFF534345),
+        surfaceContainerLowest = Color(0xFF0F090A),
+        surfaceContainerLow = Color(0xFF1F1617),
+        surfaceContainer = Color(0xFF261C1D),
+        surfaceContainerHigh = Color(0xFF332729),
+        surfaceContainerHighest = Color(0xFF413235)
+    )
+
+    // 5. Sage Green
+    private val sageLight = lightColorScheme(
+        primary = Color(0xFF386A42),
+        onPrimary = Color(0xFFFFFFFF),
+        primaryContainer = Color(0xFFB9F1BF),
+        onPrimaryContainer = Color(0xFF00210A),
+        secondary = Color(0xFF516351),
+        onSecondary = Color(0xFFFFFFFF),
+        secondaryContainer = Color(0xFFD4E8D2),
+        onSecondaryContainer = Color(0xFF0F1F12),
+        tertiary = Color(0xFF39656E),
+        onTertiary = Color(0xFFFFFFFF),
+        tertiaryContainer = Color(0xFFBDEAF5),
+        onTertiaryContainer = Color(0xFF001F25),
+        error = sharedLightError,
+        onError = sharedLightOnError,
+        errorContainer = sharedLightErrorContainer,
+        onErrorContainer = sharedLightOnErrorContainer,
+        background = Color(0xFFF5FAF2),
+        onBackground = Color(0xFF181D18),
+        surface = Color(0xFFF5FAF2),
+        onSurface = Color(0xFF181D18),
+        surfaceVariant = Color(0xFFDDE5DA),
+        onSurfaceVariant = Color(0xFF414941),
+        outlineVariant = Color(0xFFC1C9BF),
+        surfaceContainerLowest = Color(0xFFFFFFFF),
+        surfaceContainerLow = Color(0xFFEDF3EA),
+        surfaceContainer = Color(0xFFE6EDE3),
+        surfaceContainerHigh = Color(0xFFDCE4D9),
+        surfaceContainerHighest = Color(0xFFD2DBCF)
+    )
+
+    private val sageDark = darkColorScheme(
+        primary = Color(0xFF9ED4A4),
+        onPrimary = Color(0xFF043918),
+        primaryContainer = Color(0xFF1F512C),
+        onPrimaryContainer = Color(0xFFB9F1BF),
+        secondary = Color(0xFFB8CCB7),
+        onSecondary = Color(0xFF243425),
+        secondaryContainer = Color(0xFF394B3A),
+        onSecondaryContainer = Color(0xFFD8ECD6),
+        tertiary = Color(0xFFA1CED9),
+        onTertiary = Color(0xFF00363E),
+        tertiaryContainer = Color(0xFF1F4D56),
+        onTertiaryContainer = Color(0xFFBDEAF5),
+        error = sharedDarkError,
+        onError = sharedDarkOnError,
+        errorContainer = sharedDarkErrorContainer,
+        onErrorContainer = sharedDarkOnErrorContainer,
+        background = Color(0xFF0D120D),
+        onBackground = Color(0xFFE1E6DE),
+        surface = Color(0xFF0D120D),
+        onSurface = Color(0xFFE1E6DE),
+        surfaceVariant = Color(0xFF404940),
+        onSurfaceVariant = Color(0xFFC0C9BE),
+        outlineVariant = Color(0xFF404940),
+        surfaceContainerLowest = Color(0xFF080C08),
+        surfaceContainerLow = Color(0xFF151B15),
+        surfaceContainer = Color(0xFF1C231C),
+        surfaceContainerHigh = Color(0xFF273027),
+        surfaceContainerHighest = Color(0xFF333E33)
+    )
+
+    // 6. Warm Slate
+    private val slateLight = lightColorScheme(
+        primary = Color(0xFF526071),
+        onPrimary = Color(0xFFFFFFFF),
+        primaryContainer = Color(0xFFD6E4F7),
+        onPrimaryContainer = Color(0xFF0F1D2B),
+        secondary = Color(0xFF5A5F66),
+        onSecondary = Color(0xFFFFFFFF),
+        secondaryContainer = Color(0xFFDFE3EB),
+        onSecondaryContainer = Color(0xFF171C22),
+        tertiary = Color(0xFF6B5B53),
+        onTertiary = Color(0xFFFFFFFF),
+        tertiaryContainer = Color(0xFFF4DED3),
+        onTertiaryContainer = Color(0xFF241913),
+        error = sharedLightError,
+        onError = sharedLightOnError,
+        errorContainer = sharedLightErrorContainer,
+        onErrorContainer = sharedLightOnErrorContainer,
+        background = Color(0xFFF8F8FA),
+        onBackground = Color(0xFF1A1C1E),
+        surface = Color(0xFFF8F8FA),
+        onSurface = Color(0xFF1A1C1E),
+        surfaceVariant = Color(0xFFE1E2E6),
+        onSurfaceVariant = Color(0xFF44474C),
+        outlineVariant = Color(0xFFC4C6CC),
+        surfaceContainerLowest = Color(0xFFFFFFFF),
+        surfaceContainerLow = Color(0xFFF1F2F5),
+        surfaceContainer = Color(0xFFEAEBEF),
+        surfaceContainerHigh = Color(0xFFE0E2E7),
+        surfaceContainerHighest = Color(0xFFD7D9DF)
+    )
+
+    private val slateDark = darkColorScheme(
+        primary = Color(0xFFBAC8DA),
+        onPrimary = Color(0xFF243241),
+        primaryContainer = Color(0xFF3B4859),
+        onPrimaryContainer = Color(0xFFD6E4F7),
+        secondary = Color(0xFFC3C7CF),
+        onSecondary = Color(0xFF2C3138),
+        secondaryContainer = Color(0xFF414750),
+        onSecondaryContainer = Color(0xFFE3E7EF),
+        tertiary = Color(0xFFD7C2B8),
+        onTertiary = Color(0xFF3B2D26),
+        tertiaryContainer = Color(0xFF52433C),
+        onTertiaryContainer = Color(0xFFF4DED3),
+        error = sharedDarkError,
+        onError = sharedDarkOnError,
+        errorContainer = sharedDarkErrorContainer,
+        onErrorContainer = sharedDarkOnErrorContainer,
+        background = Color(0xFF0F1013),
+        onBackground = Color(0xFFE4E5E9),
+        surface = Color(0xFF0F1013),
+        onSurface = Color(0xFFE4E5E9),
+        surfaceVariant = Color(0xFF44474E),
+        onSurfaceVariant = Color(0xFFC4C6CE),
+        outlineVariant = Color(0xFF44474E),
+        surfaceContainerLowest = Color(0xFF0A0B0D),
+        surfaceContainerLow = Color(0xFF17191D),
+        surfaceContainer = Color(0xFF1E2026),
+        surfaceContainerHigh = Color(0xFF2A2D34),
+        surfaceContainerHighest = Color(0xFF363A43)
+    )
+
+    val all: List<ThemePaletteSpec> = listOf(
+        ThemePaletteSpec(0, R.string.color_google_blue, Color(0xFF1557B0), Color(0xFF8AB4F8), googleBlueLight, googleBlueDark),
+        ThemePaletteSpec(1, R.string.color_indigo, Color(0xFF4534B8), Color(0xFFB5AAFF), indigoLight, indigoDark),
+        ThemePaletteSpec(2, R.string.color_teal, Color(0xFF006D6D), Color(0xFF7AD8D7), tealLight, tealDark),
+        ThemePaletteSpec(3, R.string.color_amber, Color(0xFFB86B00), Color(0xFFFFC178), amberLight, amberDark),
+        ThemePaletteSpec(4, R.string.color_coral, Color(0xFFA62F43), Color(0xFFFF9FAA), coralLight, coralDark),
+        ThemePaletteSpec(5, R.string.color_sage, Color(0xFF2E6139), Color(0xFF9AD4A3), sageLight, sageDark),
+        ThemePaletteSpec(6, R.string.color_slate, Color(0xFF475566), Color(0xFFB3C3D6), slateLight, slateDark)
+    )
+
+    fun get(index: Int): ThemePaletteSpec = all[index.coerceIn(0, all.lastIndex)]
+}
