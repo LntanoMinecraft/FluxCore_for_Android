@@ -1,5 +1,3 @@
-import java.io.File
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -18,32 +16,39 @@ android {
         versionName = "2.0.0"
     }
 
-    val releaseKeystorePath = System.getenv("SIGNING_KEYSTORE_PATH")
-        ?: "${rootDir}/release.jks"
-    val releaseKeystoreFile = File(releaseKeystorePath)
-    val hasReleaseSigning = releaseKeystoreFile.exists() &&
-        !System.getenv("SIGNING_STORE_PASSWORD").isNullOrEmpty() &&
-        !System.getenv("SIGNING_KEY_PASSWORD").isNullOrEmpty()
-
+    // Do not remove or modify these signingConfigs. They are necessary for building, installing,
+    // and updating Android apps in AI Studio and GitHub Actions.
     signingConfigs {
+        create("release") {
+            val keystorePath =
+                System.getenv("SIGNING_KEYSTORE_PATH")
+                    ?: System.getenv("KEYSTORE_FILE")
+                    ?: System.getenv("KEYSTORE_PATH")
+                    ?: "${rootDir}/my-upload-key.jks"
+            storeFile = file(keystorePath)
+            storePassword =
+                System.getenv("SIGNING_STORE_PASSWORD")
+                    ?: System.getenv("KEYSTORE_PASSWORD")
+                    ?: System.getenv("STORE_PASSWORD")
+            keyAlias =
+                System.getenv("SIGNING_KEY_ALIAS")?.ifBlank { null }
+                    ?: System.getenv("KEY_ALIAS")?.ifBlank { null }
+                    ?: "upload"
+            keyPassword =
+                System.getenv("SIGNING_KEY_PASSWORD")
+                    ?: System.getenv("KEY_PASSWORD")
+        }
         create("debugConfig") {
             storeFile = file("${rootDir}/debug.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
-        create("release") {
-            if (hasReleaseSigning) {
-                storeFile = releaseKeystoreFile
-                storePassword = System.getenv("SIGNING_STORE_PASSWORD")
-                keyAlias = System.getenv("SIGNING_KEY_ALIAS")?.ifBlank { "upload" } ?: "upload"
-                keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
-            }
-        }
     }
 
     buildTypes {
         debug {
+            // Do not remove or modify this signingConfig assignment.
             signingConfig = signingConfigs.getByName("debugConfig")
         }
         release {
@@ -53,11 +58,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = if (hasReleaseSigning) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debugConfig")
-            }
+            // Do not remove or modify this signingConfig assignment.
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -102,7 +104,10 @@ dependencies {
 if (System.getenv("GITHUB_ACTIONS") == "true") {
     val runNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
     val ciVersionCode = 10 + runNumber
-    val ciVersionName = System.getenv("RELEASE_VERSION")?.takeIf { it.isNotBlank() }
+    val ciVersionName = System.getenv("RELEASE_VERSION")
+        ?.trim()
+        ?.removePrefix("v")
+        ?.takeIf { it.isNotBlank() }
         ?: "dev-${System.getenv("GITHUB_SHA")?.take(7) ?: "local"}"
 
     androidComponents.onVariants { variant ->
