@@ -11,7 +11,7 @@ import com.mouajmd.fluxcore.model.AutomationRule
 import com.mouajmd.fluxcore.shortcut.ShortcutTriggerActivity
 
 object ShortcutHelper {
-    const val EXTRA_RULE_ID = "com.mouajmd.fluxcore.EXTRA_RULE_ID"
+    const val EXTRA_RULE_ID = "com.lntano.fluxcore.EXTRA_RULE_ID"
 
     private fun shortcutId(ruleId: String) = "flux_rule_$ruleId"
 
