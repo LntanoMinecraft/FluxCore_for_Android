@@ -2,15 +2,23 @@ package com.mouajmd.fluxcore;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
 import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class RuleStore {
     private static final String PREF = "fluxcore_rules_v1";
     private static final String KEY = "rules_json";
     private static final String KEY_ADVANCED = "advanced_mode";
-    private static final String KEY_PRESETS_INIT = "presets_v1_inited";
 
     public static boolean isAdvancedMode(Context ctx) {
         return ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
@@ -34,69 +42,7 @@ public class RuleStore {
                 list.add(Rule.fromJson(arr.getJSONObject(i)));
             }
         } catch (Exception ignored) {}
-
-        if (!sp.getBoolean(KEY_PRESETS_INIT, false)) {
-            appendDefaultPresets(ctx, sp, list);
-        }
         return list;
-    }
-
-    private static void appendDefaultPresets(Context ctx, SharedPreferences sp, List<Rule> list) {
-        List<Rule> presets = new ArrayList<>();
-
-        // 1. 游戏沉浸预设（默认手动触发，点击卡片可绑定具体游戏）
-        Rule game = new Rule();
-        game.id = "preset_gaming_mode";
-        game.name = "游戏沉浸模式";
-        game.enabled = true;
-        game.triggerType = Rule.TRIG_MANUAL;
-        game.dndMode = 2;
-        game.refreshRate = 120;
-        game.brightness = 200;
-        game.autoRevert = true;
-        presets.add(game);
-
-        // 2. 睡眠勿扰预设
-        Rule sleep = new Rule();
-        sleep.id = "preset_sleep_mode";
-        sleep.name = "深度睡眠模式";
-        sleep.enabled = true;
-        sleep.triggerType = Rule.TRIG_MANUAL;
-        sleep.dndMode = 2;
-        sleep.refreshRate = 60;
-        sleep.brightness = 15;
-        sleep.wifiAction = 0;
-        sleep.autoRevert = true;
-        presets.add(sleep);
-
-        // 3. 极致省电预设（联动系统省电模式 + 60Hz + 低亮度）
-        Rule saver = new Rule();
-        saver.id = "preset_power_saving";
-        saver.name = "极致省电模式";
-        saver.enabled = true;
-        saver.triggerType = Rule.TRIG_MANUAL;
-        saver.refreshRate = 60;
-        saver.brightness = 45;
-        saver.customCmd = "settings put global low_power 1";
-        saver.revertCmd = "settings put global low_power 0";
-        saver.autoRevert = true;
-        presets.add(saver);
-
-        for (Rule p : presets) {
-            boolean exists = false;
-            for (Rule cur : list) {
-                if (p.id.equals(cur.id)) {
-                    exists = true;
-                    break;
-                }
-            }
-            if (!exists) {
-                list.add(p);
-            }
-        }
-
-        saveAll(ctx, list);
-        sp.edit().putBoolean(KEY_PRESETS_INIT, true).apply();
     }
 
     public static synchronized void saveAll(Context ctx, List<Rule> rules) {
@@ -132,5 +78,81 @@ public class RuleStore {
             if (all.get(i).id.equals(id)) all.remove(i);
         }
         saveAll(ctx, all);
+    }
+
+    public static synchronized String exportConfig(Context ctx) {
+        String dirPath = "/storage/emulated/0/Download/FluxCore";
+        String stamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+        String fileName = "FluxCore_config_" + stamp + ".json";
+        String fullPath = dirPath + "/" + fileName;
+
+        try {
+            JSONObject root = new JSONObject();
+            root.put("app", "FluxCore");
+            root.put("version", "1.2.0");
+            root.put("advancedMode", isAdvancedMode(ctx));
+            JSONArray arr = new JSONArray();
+            for (Rule r : load(ctx)) arr.put(r.toJson());
+            root.put("rules", arr);
+
+            byte[] data = root.toString(2).getBytes(StandardCharsets.UTF_8);
+            File tmp = new File(ctx.getCacheDir(), fileName);
+            FileOutputStream fos = new FileOutputStream(tmp);
+            fos.write(data);
+            fos.close();
+
+            File outDir = new File(dirPath);
+            if (!outDir.exists()) outDir.mkdirs();
+            try {
+                FileOutputStream outFos = new FileOutputStream(new File(outDir, fileName));
+                outFos.write(data);
+                outFos.close();
+            } catch (Throwable ignored) {
+                RootShell.exec("mkdir -p '" + dirPath + "' && cp -f '" + tmp.getAbsolutePath() + "' '" + fullPath + "' && chmod 664 '" + fullPath + "'");
+            }
+            AppLogger.log("CONFIG", "配置已导出至: " + fullPath);
+            return fullPath;
+        } catch (Throwable e) {
+            AppLogger.log("ERROR", "配置导出失败: " + e.getMessage());
+            return null;
+        }
+    }
+
+    public static synchronized int importConfigFromFile(Context ctx, File file, boolean overwrite) {
+        try {
+            String raw;
+            try {
+                FileInputStream fis = new FileInputStream(file);
+                byte[] buf = new byte[(int) file.length()];
+                int read = fis.read(buf);
+                fis.close();
+                raw = new String(buf, 0, Math.max(0, read), StandardCharsets.UTF_8);
+            } catch (Throwable ignored) {
+                raw = RootShell.exec("cat '" + file.getAbsolutePath() + "'");
+            }
+            JSONObject root = new JSONObject(raw);
+            if (root.has("advancedMode")) {
+                setAdvancedMode(ctx, root.optBoolean("advancedMode", false));
+            }
+            JSONArray arr = root.getJSONArray("rules");
+            List<Rule> imported = new ArrayList<>();
+            for (int i = 0; i < arr.length(); i++) {
+                Rule r = Rule.fromJson(arr.getJSONObject(i));
+                if (!overwrite) r.id = UUID.randomUUID().toString();
+                imported.add(r);
+            }
+            if (overwrite) {
+                saveAll(ctx, imported);
+            } else {
+                List<Rule> current = load(ctx);
+                current.addAll(0, imported);
+                saveAll(ctx, current);
+            }
+            AppLogger.log("CONFIG", "已导入 " + imported.size() + " 条规则 (" + (overwrite ? "覆盖" : "合并") + ")");
+            return imported.size();
+        } catch (Throwable e) {
+            AppLogger.log("ERROR", "配置导入失败: " + e.getMessage());
+            return -1;
+        }
     }
 }

@@ -9,7 +9,10 @@ import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.util.TypedValue;
+import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.OvershootInterpolator;
@@ -35,74 +38,58 @@ public class Md3e {
 
         if (Build.VERSION.SDK_INT >= 31) {
             if (t.isDark) {
+                t.bg = sysColor(ctx, android.R.color.system_neutral1_900, 0xFF141316);
+                t.surfaceLow = sysColor(ctx, android.R.color.system_neutral1_800, 0xFF1F1E22);
+                t.surfaceHigh = sysColor(ctx, android.R.color.system_neutral1_700, 0xFF2B292F);
                 t.primary = sysColor(ctx, android.R.color.system_accent1_200, 0xFFD0BCFF);
                 t.onPrimary = sysColor(ctx, android.R.color.system_accent1_800, 0xFF381E72);
                 t.primaryContainer = sysColor(ctx, android.R.color.system_accent1_700, 0xFF4F378B);
                 t.onPrimaryContainer = sysColor(ctx, android.R.color.system_accent1_100, 0xFFEADDFF);
                 t.secondaryContainer = sysColor(ctx, android.R.color.system_accent2_700, 0xFF4A4458);
                 t.onSecondaryContainer = sysColor(ctx, android.R.color.system_accent2_100, 0xFFE8DEF8);
-
-                int baseDark = sysColor(ctx, android.R.color.system_neutral1_900, 0xFF141218);
-                t.bg = blend(baseDark, t.primary, 0.03f);
-                t.surfaceLow = blend(baseDark, t.primary, 0.09f);
-                t.surfaceHigh = blend(baseDark, t.primary, 0.15f);
                 t.textPrimary = 0xFFE6E1E5;
                 t.textSecondary = 0xFFCAC4D0;
             } else {
+                t.bg = sysColor(ctx, android.R.color.system_neutral1_50, 0xFFF6F5F8);
+                t.surfaceLow = 0xFFFFFFFF;
+                t.surfaceHigh = sysColor(ctx, android.R.color.system_neutral1_100, 0xFFECEAEF);
                 t.primary = sysColor(ctx, android.R.color.system_accent1_600, 0xFF6750A4);
                 t.onPrimary = 0xFFFFFFFF;
                 t.primaryContainer = sysColor(ctx, android.R.color.system_accent1_100, 0xFFEADDFF);
                 t.onPrimaryContainer = sysColor(ctx, android.R.color.system_accent1_900, 0xFF21005D);
                 t.secondaryContainer = sysColor(ctx, android.R.color.system_accent2_100, 0xFFE8DEF8);
                 t.onSecondaryContainer = sysColor(ctx, android.R.color.system_accent2_900, 0xFF1D192B);
-
-                int baseLight = sysColor(ctx, android.R.color.system_neutral1_10, 0xFFFCF8FD);
-                t.bg = blend(baseLight, t.primary, 0.02f);
-                t.surfaceLow = blend(baseLight, t.primary, 0.065f);
-                t.surfaceHigh = blend(baseLight, t.primary, 0.12f);
                 t.textPrimary = 0xFF1C1B1F;
                 t.textSecondary = 0xFF49454F;
             }
         } else {
             if (t.isDark) {
+                t.bg = 0xFF141316;
+                t.surfaceLow = 0xFF1F1E22;
+                t.surfaceHigh = 0xFF2B292F;
                 t.primary = 0xFFD0BCFF;
                 t.onPrimary = 0xFF381E72;
                 t.primaryContainer = 0xFF4F378B;
                 t.onPrimaryContainer = 0xFFEADDFF;
                 t.secondaryContainer = 0xFF4A4458;
                 t.onSecondaryContainer = 0xFFE8DEF8;
-                t.bg = 0xFF141218;
-                t.surfaceLow = 0xFF211F26;
-                t.surfaceHigh = 0xFF2B2930;
                 t.textPrimary = 0xFFE6E1E5;
                 t.textSecondary = 0xFFCAC4D0;
             } else {
+                t.bg = 0xFFF6F5F8;
+                t.surfaceLow = 0xFFFFFFFF;
+                t.surfaceHigh = 0xFFECEAEF;
                 t.primary = 0xFF6750A4;
                 t.onPrimary = 0xFFFFFFFF;
                 t.primaryContainer = 0xFFEADDFF;
                 t.onPrimaryContainer = 0xFF21005D;
                 t.secondaryContainer = 0xFFE8DEF8;
                 t.onSecondaryContainer = 0xFF1D192B;
-                t.bg = 0xFFFAF7FC;
-                t.surfaceLow = 0xFFF1ECF6;
-                t.surfaceHigh = 0xFFE6E0EC;
                 t.textPrimary = 0xFF1C1B1F;
                 t.textSecondary = 0xFF49454F;
             }
         }
         return t;
-    }
-
-    private static int blend(int base, int tint, float ratio) {
-        float inv = 1f - ratio;
-        int r = Math.round(Color.red(base) * inv + Color.red(tint) * ratio);
-        int g = Math.round(Color.green(base) * inv + Color.green(tint) * ratio);
-        int b = Math.round(Color.blue(base) * inv + Color.blue(tint) * ratio);
-        return Color.rgb(
-                Math.max(0, Math.min(255, r)),
-                Math.max(0, Math.min(255, g)),
-                Math.max(0, Math.min(255, b))
-        );
     }
 
     private static int sysColor(Context ctx, int resId, int fallback) {
@@ -131,12 +118,29 @@ public class Md3e {
         return new RippleDrawable(ColorStateList.valueOf(rippleColor), content, mask);
     }
 
+    public static void haptic(View v) {
+        if (v != null) {
+            v.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK,
+                    HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+        }
+    }
+
+    public static void vibratePulse(Context ctx, int ms) {
+        try {
+            Vibrator vib = (Vibrator) ctx.getSystemService(Context.VIBRATOR_SERVICE);
+            if (vib != null && vib.hasVibrator()) {
+                vib.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE));
+            }
+        } catch (Throwable ignored) {}
+    }
+
     public static void attachSpringTouch(final View v) {
         v.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 switch (event.getActionMasked()) {
                     case MotionEvent.ACTION_DOWN:
+                        haptic(view);
                         view.animate().scaleX(0.95f).scaleY(0.95f).setDuration(110).start();
                         break;
                     case MotionEvent.ACTION_UP:

@@ -10,6 +10,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.Configuration;
+import android.media.AudioManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.BatteryManager;
@@ -20,6 +22,7 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.Calendar;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -27,17 +30,18 @@ import java.util.regex.Pattern;
 public class FluxService extends Service {
     public static volatile boolean isRunning = false;
     private volatile boolean stopFlag = false;
-    private Process monitorProc;
-    private final Object pollLock = new Object();
+    private Process logcatProc;
 
-    private volatile String lastFgPkg = "";
     private volatile String currentFgPkg = "";
     private volatile boolean isCharging = false;
+    private volatile int batteryLevel = 50;
     private volatile boolean isScreenOn = true;
     private volatile boolean isWifiConnected = false;
     private volatile String currentWifiSsid = "";
     private volatile boolean isBtConnected = false;
     private volatile String connectedBtDump = "";
+    private volatile boolean isHeadsetPlugged = false;
+    private volatile boolean isLandscape = false;
 
     private final BroadcastReceiver sysReceiver = new BroadcastReceiver() {
         @Override
@@ -52,16 +56,40 @@ public class FluxService extends Service {
                 isCharging = false;
                 AppLogger.log("EVENT", "系统事件: 充电器已断开");
                 evaluateAllRules();
+            } else if (Intent.ACTION_BATTERY_CHANGED.equals(act)) {
+                int lvl = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                int scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100);
+                if (lvl >= 0 && scale > 0) {
+                    int pct = Math.round((lvl * 100f) / scale);
+                    if (pct != batteryLevel) {
+                        batteryLevel = pct;
+                        evaluateAllRules();
+                    }
+                }
             } else if (Intent.ACTION_SCREEN_ON.equals(act)) {
                 isScreenOn = true;
                 AppLogger.log("EVENT", "系统事件: 屏幕亮起");
-                synchronized (pollLock) {
-                    pollLock.notifyAll();
-                }
                 evaluateAllRules();
             } else if (Intent.ACTION_SCREEN_OFF.equals(act)) {
                 isScreenOn = false;
                 AppLogger.log("EVENT", "系统事件: 屏幕熄灭");
+                evaluateAllRules();
+            } else if (AudioManager.ACTION_HEADSET_PLUG.equals(act)) {
+                int state = intent.getIntExtra("state", 0);
+                boolean plugged = (state == 1);
+                if (plugged != isHeadsetPlugged) {
+                    isHeadsetPlugged = plugged;
+                    AppLogger.log("EVENT", "系统事件: 有线耳机" + (plugged ? "已插入" : "已拔出"));
+                    evaluateAllRules();
+                }
+            } else if (Intent.ACTION_CONFIGURATION_CHANGED.equals(act)) {
+                boolean land = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+                if (land != isLandscape) {
+                    isLandscape = land;
+                    AppLogger.log("EVENT", "系统事件: 屏幕切换为" + (land ? "横屏" : "竖屏"));
+                    evaluateAllRules();
+                }
+            } else if (Intent.ACTION_TIME_TICK.equals(act)) {
                 evaluateAllRules();
             } else if (ConnectivityManager.CONNECTIVITY_ACTION.equals(act)) {
                 refreshNetworkAndBtAsync("网络状态变更");
@@ -82,15 +110,19 @@ public class FluxService extends Service {
     public void onCreate() {
         super.onCreate();
         isRunning = true;
-        AppLogger.log("ENGINE", "FluxCore 自动化引擎启动 (兼容活动栈监听)");
+        AppLogger.log("ENGINE", "FluxCore v1.2.0 自动化引擎启动");
         startForegroundCompat();
         initInitialStates();
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(Intent.ACTION_POWER_CONNECTED);
         filter.addAction(Intent.ACTION_POWER_DISCONNECTED);
+        filter.addAction(Intent.ACTION_BATTERY_CHANGED);
         filter.addAction(Intent.ACTION_SCREEN_ON);
         filter.addAction(Intent.ACTION_SCREEN_OFF);
+        filter.addAction(AudioManager.ACTION_HEADSET_PLUG);
+        filter.addAction(Intent.ACTION_CONFIGURATION_CHANGED);
+        filter.addAction(Intent.ACTION_TIME_TICK);
         filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
         filter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
@@ -101,7 +133,7 @@ public class FluxService extends Service {
             registerReceiver(sysReceiver, filter);
         }
 
-        startAppMonitorThread();
+        startEventStreamThread();
     }
 
     private void initInitialStates() {
@@ -110,9 +142,13 @@ public class FluxService extends Service {
             if (bat != null) {
                 int plugged = bat.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0);
                 isCharging = plugged != 0;
+                int lvl = bat.getIntExtra(BatteryManager.EXTRA_LEVEL, 50);
+                int scale = bat.getIntExtra(BatteryManager.EXTRA_SCALE, 100);
+                if (scale > 0) batteryLevel = Math.round((lvl * 100f) / scale);
             }
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
             if (pm != null) isScreenOn = pm.isInteractive();
+            isLandscape = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
         } catch (Throwable ignored) {}
         refreshNetworkAndBtAsync("初始化硬件状态");
     }
@@ -128,10 +164,8 @@ public class FluxService extends Service {
                         NetworkInfo ni = cm.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
                         wifiOk = (ni != null && ni.isConnected());
                     }
-                    String ssid = RootShell.queryCurrentWifiSsid();
-                    if (!wifiOk && !ssid.isEmpty()) wifiOk = true;
                     isWifiConnected = wifiOk;
-                    currentWifiSsid = wifiOk ? ssid : "";
+                    currentWifiSsid = wifiOk ? RootShell.queryCurrentWifiSsid() : "";
 
                     String btDump = RootShell.queryConnectedBtDevices();
                     connectedBtDump = btDump;
@@ -142,7 +176,7 @@ public class FluxService extends Service {
 
                     AppLogger.log("STATE", reason + " -> Wi-Fi=" + isWifiConnected +
                             (currentWifiSsid.isEmpty() ? "" : "(" + currentWifiSsid + ")") +
-                            ", BT=" + isBtConnected);
+                            ", BT=" + isBtConnected + ", Bat=" + batteryLevel + "%");
                     evaluateAllRules();
                 } catch (Throwable ignored) {}
             }
@@ -161,104 +195,71 @@ public class FluxService extends Service {
                 ? new Notification.Builder(this, chId)
                 : new Notification.Builder(this);
         b.setContentTitle("流枢 · FluxCore 运行中")
-         .setContentText("应用与系统事件监听引擎已就绪")
+         .setContentText("零轮询监听系统事件 · 规则引擎已就绪")
          .setSmallIcon(android.R.drawable.ic_popup_sync)
          .setOngoing(true);
         startForeground(101, b.build());
     }
 
-    private void startAppMonitorThread() {
+    private void startEventStreamThread() {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                Pattern actPat = Pattern.compile("(?:u\\d+\\s+|\\s)([a-zA-Z0-9_]+(?:\\.[a-zA-Z0-9_]+)+)/");
-                String probeCmd =
-                        "dumpsys activity activities 2>/dev/null | grep -E 'topResumedActivity=|mResumedActivity:|ResumedActivity:' | head -n 2\n" +
-                        "dumpsys window displays 2>/dev/null | grep -E 'mCurrentFocus=|mFocusedApp=' | head -n 2\n" +
-                        "echo '===FLUX_TICK==='\n";
-
+                Pattern resumePat = Pattern.compile("(?:am_on_resume_called|wm_on_resume_called|am_resumed):\\s*\\[\\d+,([a-zA-Z0-9_\\.]+),");
                 while (!stopFlag) {
-                    DataOutputStream os = null;
-                    BufferedReader br = null;
                     try {
-                        monitorProc = Runtime.getRuntime().exec("su");
-                        os = new DataOutputStream(monitorProc.getOutputStream());
-                        br = new BufferedReader(new InputStreamReader(monitorProc.getInputStream(), StandardCharsets.UTF_8));
+                        logcatProc = Runtime.getRuntime().exec("su");
+                        DataOutputStream os = new DataOutputStream(logcatProc.getOutputStream());
+                        os.writeBytes("logcat -b events -T 1 -v brief *:I\n");
+                        os.flush();
 
-                        while (!stopFlag) {
-                            if (!isScreenOn) {
-                                synchronized (pollLock) {
-                                    if (!isScreenOn && !stopFlag) {
-                                        pollLock.wait(5000);
-                                    }
+                        BufferedReader br = new BufferedReader(new InputStreamReader(logcatProc.getInputStream(), StandardCharsets.UTF_8));
+                        String line;
+                        while (!stopFlag && (line = br.readLine()) != null) {
+                            Matcher m = resumePat.matcher(line);
+                            if (m.find()) {
+                                String pkg = m.group(1);
+                                if (pkg != null && !pkg.equals(currentFgPkg)) {
+                                    currentFgPkg = pkg;
+                                    AppLogger.log("APP", "前台应用切换 -> " + pkg);
+                                    evaluateAllRules();
                                 }
-                                continue;
-                            }
-
-                            os.writeBytes(probeCmd);
-                            os.flush();
-
-                            String detectedPkg = "";
-                            String fallbackPkg = "";
-                            String line;
-                            while (!stopFlag && (line = br.readLine()) != null) {
-                                if ("===FLUX_TICK===".equals(line.trim())) {
-                                    break;
-                                }
-                                Matcher m = actPat.matcher(line);
-                                if (m.find()) {
-                                    String candidate = m.group(1);
-                                    if (candidate != null && !candidate.isEmpty()) {
-                                        if (line.contains("ResumedActivity")) {
-                                            if (detectedPkg.isEmpty()) detectedPkg = candidate;
-                                        } else if (fallbackPkg.isEmpty()
-                                                && !"com.android.systemui".equals(candidate)
-                                                && !candidate.contains("inputmethod")) {
-                                            fallbackPkg = candidate;
-                                        }
-                                    }
-                                }
-                            }
-
-                            String finalPkg = !detectedPkg.isEmpty() ? detectedPkg : fallbackPkg;
-                            if (!finalPkg.isEmpty() && !finalPkg.equals(currentFgPkg)) {
-                                lastFgPkg = currentFgPkg;
-                                currentFgPkg = finalPkg;
-                                AppLogger.log("APP", "前台应用切换: " + (lastFgPkg.isEmpty() ? "无" : lastFgPkg) + " -> " + currentFgPkg);
-                                evaluateAllRules();
-                            }
-
-                            synchronized (pollLock) {
-                                pollLock.wait(450);
                             }
                         }
-                    } catch (Throwable ignored) {
-                    } finally {
-                        try { if (os != null) os.close(); } catch (Throwable ignored) {}
-                        try { if (br != null) br.close(); } catch (Throwable ignored) {}
-                        if (monitorProc != null) {
-                            try { monitorProc.destroy(); } catch (Throwable ignored) {}
-                            monitorProc = null;
-                        }
-                    }
+                    } catch (Throwable ignored) {}
                     try { Thread.sleep(1500); } catch (InterruptedException ignored) {}
                 }
             }
         }).start();
     }
 
-    private boolean checkConditionMatch(Rule r, int type, boolean expectedOn, List<String> pkgs, String targetName) {
+    private boolean isInTimeWindow(String spec) {
+        String s = (spec == null || spec.trim().isEmpty()) ? "23:00-07:00" : spec.trim();
+        try {
+            String[] parts = s.split("-");
+            if (parts.length != 2) return false;
+            String[] p1 = parts[0].trim().split(":");
+            String[] p2 = parts[1].trim().split(":");
+            int startMin = Integer.parseInt(p1[0]) * 60 + Integer.parseInt(p1[1]);
+            int endMin = Integer.parseInt(p2[0]) * 60 + Integer.parseInt(p2[1]);
+            Calendar cal = Calendar.getInstance();
+            int nowMin = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE);
+            if (startMin <= endMin) {
+                return nowMin >= startMin && nowMin < endMin;
+            } else {
+                return nowMin >= startMin || nowMin < endMin;
+            }
+        } catch (Throwable e) {
+            return false;
+        }
+    }
+
+    private boolean checkConditionMatch(int type, boolean expectedOn, List<String> pkgs, String targetName, int threshold) {
         switch (type) {
             case Rule.TRIG_APP: {
-                if (pkgs == null || pkgs.isEmpty() || currentFgPkg.isEmpty()) return false;
+                if (pkgs == null || pkgs.isEmpty()) return false;
                 boolean inList = pkgs.contains(currentFgPkg);
-                if (expectedOn) {
-                    return inList;
-                } else {
-                    if (inList) return false;
-                    boolean wasInList = !lastFgPkg.isEmpty() && pkgs.contains(lastFgPkg);
-                    return wasInList || ActionExecutor.isActive(r.id);
-                }
+                return expectedOn ? inList : !inList;
             }
             case Rule.TRIG_CHARGING:
                 return isCharging == expectedOn;
@@ -269,9 +270,6 @@ public class FluxService extends Service {
                 if (kw.isEmpty()) {
                     return isWifiConnected == expectedOn;
                 } else {
-                    if (isWifiConnected && (currentWifiSsid == null || currentWifiSsid.isEmpty())) {
-                        currentWifiSsid = RootShell.queryCurrentWifiSsid();
-                    }
                     boolean matched = isWifiConnected && currentWifiSsid.equalsIgnoreCase(kw);
                     return expectedOn ? matched : !matched;
                 }
@@ -285,6 +283,14 @@ public class FluxService extends Service {
                     return expectedOn ? matched : !matched;
                 }
             }
+            case Rule.TRIG_BATTERY:
+                return expectedOn ? (batteryLevel >= threshold) : (batteryLevel <= threshold);
+            case Rule.TRIG_HEADSET:
+                return isHeadsetPlugged == expectedOn;
+            case Rule.TRIG_ORIENTATION:
+                return isLandscape == expectedOn;
+            case Rule.TRIG_TIME:
+                return isInTimeWindow(targetName);
             default:
                 return false;
         }
@@ -295,10 +301,10 @@ public class FluxService extends Service {
         for (Rule r : rules) {
             if (!r.enabled || r.triggerType == Rule.TRIG_MANUAL) continue;
 
-            boolean allMatched = checkConditionMatch(r, r.triggerType, r.triggerOn, r.triggerPkgs, r.triggerTarget);
+            boolean allMatched = checkConditionMatch(r.triggerType, r.triggerOn, r.triggerPkgs, r.triggerTarget, r.triggerThreshold);
             if (allMatched && r.extraConditions != null) {
                 for (Rule.Condition c : r.extraConditions) {
-                    if (!checkConditionMatch(r, c.type, c.stateOn, c.pkgs, c.targetName)) {
+                    if (!checkConditionMatch(c.type, c.stateOn, c.pkgs, c.targetName, c.threshold)) {
                         allMatched = false;
                         break;
                     }
@@ -306,14 +312,9 @@ public class FluxService extends Service {
             }
 
             if (allMatched) {
-                if (!ActionExecutor.isActive(r.id)) {
-                    AppLogger.log("MATCH", "满足条件，激活情境: " + r.name + " (fg=" + currentFgPkg + ")");
-                    ActionExecutor.activate(this, r);
-                }
+                ActionExecutor.activate(this, r);
             } else {
-                if (ActionExecutor.isActive(r.id)) {
-                    ActionExecutor.deactivate(this, r);
-                }
+                ActionExecutor.deactivate(this, r);
             }
         }
     }
@@ -327,14 +328,9 @@ public class FluxService extends Service {
     public void onDestroy() {
         stopFlag = true;
         isRunning = false;
-        synchronized (pollLock) {
-            pollLock.notifyAll();
-        }
         AppLogger.log("ENGINE", "FluxCore 引擎已停止");
         try { unregisterReceiver(sysReceiver); } catch (Throwable ignored) {}
-        if (monitorProc != null) {
-            try { monitorProc.destroy(); } catch (Throwable ignored) {}
-        }
+        if (logcatProc != null) logcatProc.destroy();
         super.onDestroy();
     }
 

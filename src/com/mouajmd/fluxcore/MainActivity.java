@@ -1,19 +1,21 @@
 package com.mouajmd.fluxcore;
 
 import android.app.Activity;
+import android.app.Dialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
-import android.graphics.Insets;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
-import android.view.WindowInsets;
+import android.view.Window;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -21,34 +23,34 @@ import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 public class MainActivity extends Activity {
     private Md3e theme;
     private int currentTab = 0;
     private LinearLayout pageContainer;
+    private LinearLayout statusChipsBox;
     private TextView[] navItems = new TextView[3];
     private TextView fabAdd;
-    private TextView svcChip;
     private boolean rootOk = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         theme = Md3e.of(this);
-        getWindow().setStatusBarColor(Color.TRANSPARENT);
-        getWindow().setNavigationBarColor(Color.TRANSPARENT);
+        getWindow().setStatusBarColor(theme.bg);
+        getWindow().setNavigationBarColor(theme.bg);
         if (!theme.isDark) {
             getWindow().getDecorView().setSystemUiVisibility(
                     View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
         }
 
         rootOk = RootShell.hasRoot();
-        if (rootOk && !FluxService.isRunning) {
-            Intent svc = new Intent(this, FluxService.class);
-            if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc);
-            else startService(svc);
-        }
+        ensureServiceStarted();
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(theme.bg);
@@ -57,8 +59,7 @@ public class MainActivity extends Activity {
         mainCol.setOrientation(LinearLayout.VERTICAL);
         root.addView(mainCol, new FrameLayout.LayoutParams(-1, -1));
 
-        final View headerView = buildHeader();
-        mainCol.addView(headerView);
+        mainCol.addView(buildHeader());
 
         ScrollView scroll = new ScrollView(this);
         LinearLayout.LayoutParams sclp = new LinearLayout.LayoutParams(-1, 0, 1f);
@@ -70,9 +71,9 @@ public class MainActivity extends Activity {
         pageContainer.setPadding(pad, Md3e.dp(this, 6), pad, Md3e.dp(this, 96));
         scroll.addView(pageContainer);
 
-        final View bottomNav = buildBottomNav();
-        mainCol.addView(bottomNav);
+        mainCol.addView(buildBottomNav());
 
+        int navBarH = getSystemDimen("navigation_bar_height", Md3e.dp(this, 16));
         fabAdd = new TextView(this);
         fabAdd.setText("+ 新建情境");
         fabAdd.setTextSize(15);
@@ -81,11 +82,10 @@ public class MainActivity extends Activity {
         fabAdd.setBackground(Md3e.ripple(this, theme.primaryContainer, 0x22000000, 22));
         fabAdd.setPadding(Md3e.dp(this, 20), Md3e.dp(this, 16), Md3e.dp(this, 20), Md3e.dp(this, 16));
         fabAdd.setElevation(Md3e.dp(this, 6));
-        final int baseFabBottomMargin = Md3e.dp(this, 86);
         FrameLayout.LayoutParams flp = new FrameLayout.LayoutParams(-2, -2);
         flp.gravity = Gravity.BOTTOM | Gravity.END;
         flp.rightMargin = Md3e.dp(this, 20);
-        flp.bottomMargin = baseFabBottomMargin;
+        flp.bottomMargin = Md3e.dp(this, 78) + navBarH;
         root.addView(fabAdd, flp);
         Md3e.attachSpringTouch(fabAdd);
 
@@ -99,68 +99,45 @@ public class MainActivity extends Activity {
             }
         });
 
-        final int baseNavBottomMargin = Md3e.dp(this, 12);
-        root.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
-            @Override
-            public WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
-                int topInset = 0;
-                int bottomInset = 0;
-                if (Build.VERSION.SDK_INT >= 30) {
-                    Insets sys = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-                    topInset = sys.top;
-                    bottomInset = sys.bottom;
-                } else {
-                    topInset = insets.getSystemWindowInsetTop();
-                    bottomInset = insets.getSystemWindowInsetBottom();
-                }
-
-                int hp = Md3e.dp(MainActivity.this, 20);
-                headerView.setPadding(hp, topInset + Md3e.dp(MainActivity.this, 16), hp, Md3e.dp(MainActivity.this, 10));
-
-                LinearLayout.LayoutParams blp = (LinearLayout.LayoutParams) bottomNav.getLayoutParams();
-                int hm = Md3e.dp(MainActivity.this, 16);
-                blp.setMargins(hm, 0, hm, bottomInset + baseNavBottomMargin);
-                bottomNav.setLayoutParams(blp);
-
-                FrameLayout.LayoutParams curFlp = (FrameLayout.LayoutParams) fabAdd.getLayoutParams();
-                curFlp.bottomMargin = bottomInset + baseFabBottomMargin;
-                fabAdd.setLayoutParams(curFlp);
-
-                return insets;
-            }
-        });
-
         setContentView(root);
-        root.requestApplyInsets();
         renderTab();
-
-        root.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                updateServiceChip();
-            }
-        }, 600);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        updateServiceChip();
+        ensureServiceStarted();
+        refreshStatusChips();
+        if (currentTab == 0 && pageContainer != null) {
+            renderRulesPage();
+        }
     }
 
-    private void updateServiceChip() {
-        if (svcChip == null) return;
-        boolean running = FluxService.isRunning;
-        svcChip.setText(running ? "● 后台监听中" : "● 服务未启动");
-        svcChip.setTextColor(running ? theme.onSecondaryContainer : theme.textSecondary);
-        svcChip.setBackground(Md3e.card(this, running ? theme.secondaryContainer : theme.surfaceHigh, 50));
+    private void ensureServiceStarted() {
+        if (rootOk && !FluxService.isRunning) {
+            try {
+                Intent svc = new Intent(this, FluxService.class);
+                if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc);
+                else startService(svc);
+                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                    @Override
+                    public void run() { refreshStatusChips(); }
+                }, 400);
+            } catch (Throwable ignored) {}
+        }
+    }
+
+    private int getSystemDimen(String name, int fallback) {
+        int id = getResources().getIdentifier(name, "dimen", "android");
+        return id > 0 ? getResources().getDimensionPixelSize(id) : fallback;
     }
 
     private View buildHeader() {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         int p = Md3e.dp(this, 20);
-        box.setPadding(p, Md3e.dp(this, 44), p, Md3e.dp(this, 10));
+        int statusBarH = getSystemDimen("status_bar_height", Md3e.dp(this, 28));
+        box.setPadding(p, statusBarH + Md3e.dp(this, 14), p, Md3e.dp(this, 10));
 
         TextView title = new TextView(this);
         title.setText("流枢 · FluxCore");
@@ -169,19 +146,23 @@ public class MainActivity extends Activity {
         title.setTextColor(theme.textPrimary);
         box.addView(title);
 
-        LinearLayout chips = new LinearLayout(this);
-        chips.setOrientation(LinearLayout.HORIZONTAL);
+        statusChipsBox = new LinearLayout(this);
+        statusChipsBox.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-1, -2);
         clp.topMargin = Md3e.dp(this, 8);
+        refreshStatusChips();
 
-        chips.addView(statusChip(rootOk ? "● Root 已就绪" : "● 未获取 Root", rootOk));
-        View spacer = new View(this);
-        chips.addView(spacer, new LinearLayout.LayoutParams(Md3e.dp(this, 8), 1));
-        svcChip = statusChip(FluxService.isRunning ? "● 后台监听中" : "● 服务未启动", FluxService.isRunning);
-        chips.addView(svcChip);
-
-        box.addView(chips, clp);
+        box.addView(statusChipsBox, clp);
         return box;
+    }
+
+    private void refreshStatusChips() {
+        if (statusChipsBox == null) return;
+        statusChipsBox.removeAllViews();
+        statusChipsBox.addView(statusChip(rootOk ? "● Root 已就绪" : "● 未获取 Root", rootOk));
+        View spacer = new View(this);
+        statusChipsBox.addView(spacer, new LinearLayout.LayoutParams(Md3e.dp(this, 8), 1));
+        statusChipsBox.addView(statusChip(FluxService.isRunning ? "● 后台监听中" : "● 服务未启动", FluxService.isRunning));
     }
 
     private TextView statusChip(String label, boolean active) {
@@ -203,7 +184,8 @@ public class MainActivity extends Activity {
         bar.setPadding(p, p, p, p);
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(-1, -2);
         int m = Md3e.dp(this, 16);
-        blp.setMargins(m, 0, m, Md3e.dp(this, 12));
+        int navBarH = getSystemDimen("navigation_bar_height", Md3e.dp(this, 12));
+        blp.setMargins(m, 0, m, Math.max(Md3e.dp(this, 12), navBarH));
 
         String[] labels = {"情境", "控制台", "设置"};
         for (int i = 0; i < 3; i++) {
@@ -266,9 +248,7 @@ public class MainActivity extends Activity {
             t1.setGravity(Gravity.CENTER);
 
             TextView t2 = new TextView(this);
-            t2.setText(RuleStore.isAdvancedMode(this)
-                    ? "点击右下角「+ 新建情境」开始配置（进阶模式已开启）"
-                    : "点击右下角「+ 新建情境」开始配置\n需多应用/指定网络/多条件触发可在「设置」开启进阶模式");
+            t2.setText("点击右下角「+ 新建情境」开始配置\n支持磁贴控制、音量/旋转/网络切换及多条件组合");
             t2.setTextSize(13);
             t2.setTextColor(theme.textSecondary);
             t2.setGravity(Gravity.CENTER);
@@ -310,12 +290,22 @@ public class MainActivity extends Activity {
             sw.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    r.enabled = sw.isChecked();
+                    Md3e.haptic(v);
+                    final boolean targetEnabled = sw.isChecked();
+                    r.enabled = targetEnabled;
                     RuleStore.upsert(MainActivity.this, r);
-                    if (!r.enabled) {
-                        ActionExecutor.deactivate(MainActivity.this, r);
-                        renderRulesPage();
-                    }
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (!targetEnabled && ActionExecutor.isActive(r.id)) {
+                                ActionExecutor.deactivate(MainActivity.this, r);
+                            }
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() { renderRulesPage(); }
+                            });
+                        }
+                    }).start();
                 }
             });
             top.addView(sw);
@@ -343,7 +333,7 @@ public class MainActivity extends Activity {
             LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(-1, -2);
             blp.topMargin = Md3e.dp(this, 14);
 
-            TextView btnTrigger = new TextView(this);
+            final TextView btnTrigger = new TextView(this);
             btnTrigger.setText(active ? "■ 还原状态" : "▶ 主动触发");
             btnTrigger.setTextSize(13);
             btnTrigger.setTypeface(null, Typeface.BOLD);
@@ -354,6 +344,7 @@ public class MainActivity extends Activity {
             btnTrigger.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+                    btnTrigger.setEnabled(false);
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
@@ -382,9 +373,18 @@ public class MainActivity extends Activity {
             btnDel.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    ActionExecutor.deactivate(MainActivity.this, r);
-                    RuleStore.delete(MainActivity.this, r.id);
-                    renderRulesPage();
+                    Md3e.haptic(v);
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            ActionExecutor.deactivate(MainActivity.this, r);
+                            RuleStore.delete(MainActivity.this, r.id);
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() { renderRulesPage(); }
+                            });
+                        }
+                    }).start();
                 }
             });
             bar.addView(btnDel);
@@ -393,6 +393,7 @@ public class MainActivity extends Activity {
             card.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+                    Md3e.haptic(v);
                     RuleEditorDialog.show(MainActivity.this, r, new RuleEditorDialog.OnSavedListener() {
                         @Override
                         public void onSaved() { renderRulesPage(); }
@@ -406,7 +407,6 @@ public class MainActivity extends Activity {
     }
 
     private void renderConsolePage() {
-        pageContainer.removeAllViews();
         LinearLayout cleanCard = new LinearLayout(this);
         cleanCard.setOrientation(LinearLayout.VERTICAL);
         cleanCard.setBackground(Md3e.card(this, theme.primaryContainer, 26));
@@ -451,6 +451,7 @@ public class MainActivity extends Activity {
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
+                                Md3e.vibratePulse(MainActivity.this, 45);
                                 Toast.makeText(MainActivity.this, "后台净化完成", Toast.LENGTH_SHORT).show();
                             }
                         });
@@ -534,10 +535,9 @@ public class MainActivity extends Activity {
     }
 
     private void renderSettingsPage() {
-        pageContainer.removeAllViews();
         int p = Md3e.dp(this, 20);
-        boolean advOn = RuleStore.isAdvancedMode(this);
 
+        // 1. 进阶模式开关
         LinearLayout advCard = new LinearLayout(this);
         advCard.setOrientation(LinearLayout.VERTICAL);
         advCard.setBackground(Md3e.card(this, theme.surfaceLow, 26));
@@ -558,7 +558,7 @@ public class MainActivity extends Activity {
         advTexts.addView(advTitle);
 
         TextView advDesc = new TextView(this);
-        advDesc.setText("开启后解锁多应用共用情境、指定 Wi-Fi / 蓝牙触发、多条件 AND 组合及运行日志导出");
+        advDesc.setText("开启后在规则编辑中解锁多应用共用情境、指定 Wi-Fi / 蓝牙触发及多条件 AND 组合");
         advDesc.setTextSize(13);
         advDesc.setTextColor(theme.textSecondary);
         LinearLayout.LayoutParams adlp = new LinearLayout.LayoutParams(-1, -2);
@@ -568,21 +568,17 @@ public class MainActivity extends Activity {
         advRow.addView(advTexts, new LinearLayout.LayoutParams(0, -2, 1f));
 
         final Switch swAdv = new Switch(this);
-        swAdv.setChecked(advOn);
+        swAdv.setChecked(RuleStore.isAdvancedMode(this));
         LinearLayout.LayoutParams swlp = new LinearLayout.LayoutParams(-2, -2);
         swlp.leftMargin = Md3e.dp(this, 12);
         advRow.addView(swAdv, swlp);
 
-        final LinearLayout logCard = new LinearLayout(this);
-        logCard.setVisibility(advOn ? View.VISIBLE : View.GONE);
-
         swAdv.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                Md3e.haptic(v);
                 boolean on = swAdv.isChecked();
                 RuleStore.setAdvancedMode(MainActivity.this, on);
-                logCard.setVisibility(on ? View.VISIBLE : View.GONE);
-                if (on) Md3e.popIn(logCard, 0);
                 AppLogger.log("SETTINGS", "进阶模式已" + (on ? "开启" : "关闭"));
                 Toast.makeText(MainActivity.this, on ? "已开启进阶模式" : "已关闭进阶模式", Toast.LENGTH_SHORT).show();
             }
@@ -599,6 +595,8 @@ public class MainActivity extends Activity {
         pageContainer.addView(advCard);
         Md3e.popIn(advCard, 0);
 
+        // 2. 配置导入导出与日志导出卡片
+        LinearLayout logCard = new LinearLayout(this);
         logCard.setOrientation(LinearLayout.VERTICAL);
         logCard.setBackground(Md3e.card(this, theme.surfaceLow, 26));
         logCard.setPadding(p, p, p, p);
@@ -606,19 +604,75 @@ public class MainActivity extends Activity {
         lclp.topMargin = Md3e.dp(this, 14);
 
         TextView logTitle = new TextView(this);
-        logTitle.setText("运行日志导出");
+        logTitle.setText("配置备份与运行日志");
         logTitle.setTextSize(18);
         logTitle.setTypeface(null, Typeface.BOLD);
         logTitle.setTextColor(theme.textPrimary);
         logCard.addView(logTitle);
 
         TextView logDesc = new TextView(this);
-        logDesc.setText("自动导出至当前用户 Download/FluxCore/（无权限时自动回退至应用专属日志目录）");
+        logDesc.setText("配置文件与运行日志统一保存在 /storage/emulated/0/Download/FluxCore/");
         logDesc.setTextSize(13);
         logDesc.setTextColor(theme.textSecondary);
         LinearLayout.LayoutParams ldlp = new LinearLayout.LayoutParams(-1, -2);
         ldlp.topMargin = Md3e.dp(this, 4);
         logCard.addView(logDesc, ldlp);
+
+        LinearLayout cfgRow = new LinearLayout(this);
+        cfgRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams crlp = new LinearLayout.LayoutParams(-1, -2);
+        crlp.topMargin = Md3e.dp(this, 14);
+
+        TextView btnExportCfg = new TextView(this);
+        btnExportCfg.setText("导出配置 (.json)");
+        btnExportCfg.setGravity(Gravity.CENTER);
+        btnExportCfg.setTextColor(theme.onSecondaryContainer);
+        btnExportCfg.setTypeface(null, Typeface.BOLD);
+        btnExportCfg.setBackground(Md3e.ripple(this, theme.secondaryContainer, 0x22000000, 50));
+        btnExportCfg.setPadding(0, Md3e.dp(this, 12), 0, Md3e.dp(this, 12));
+        LinearLayout.LayoutParams eclp = new LinearLayout.LayoutParams(0, -2, 1f);
+        eclp.rightMargin = Md3e.dp(this, 8);
+        cfgRow.addView(btnExportCfg, eclp);
+        Md3e.attachSpringTouch(btnExportCfg);
+
+        btnExportCfg.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        final String path = RuleStore.exportConfig(MainActivity.this);
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                Toast.makeText(MainActivity.this,
+                                        path != null ? "配置已导出: " + path : "配置导出失败",
+                                        Toast.LENGTH_LONG).show();
+                            }
+                        });
+                    }
+                }).start();
+            }
+        });
+
+        TextView btnImportCfg = new TextView(this);
+        btnImportCfg.setText("导入配置 (.json)");
+        btnImportCfg.setGravity(Gravity.CENTER);
+        btnImportCfg.setTextColor(theme.onSecondaryContainer);
+        btnImportCfg.setTypeface(null, Typeface.BOLD);
+        btnImportCfg.setBackground(Md3e.ripple(this, theme.secondaryContainer, 0x22000000, 50));
+        btnImportCfg.setPadding(0, Md3e.dp(this, 12), 0, Md3e.dp(this, 12));
+        cfgRow.addView(btnImportCfg, new LinearLayout.LayoutParams(0, -2, 1f));
+        Md3e.attachSpringTouch(btnImportCfg);
+
+        btnImportCfg.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showImportConfigDialog();
+            }
+        });
+
+        logCard.addView(cfgRow, crlp);
 
         TextView btnExport = new TextView(this);
         btnExport.setText("导出运行日志 (.txt)");
@@ -628,7 +682,7 @@ public class MainActivity extends Activity {
         btnExport.setBackground(Md3e.ripple(this, theme.secondaryContainer, 0x22000000, 50));
         btnExport.setPadding(0, Md3e.dp(this, 12), 0, Md3e.dp(this, 12));
         LinearLayout.LayoutParams belp = new LinearLayout.LayoutParams(-1, -2);
-        belp.topMargin = Md3e.dp(this, 14);
+        belp.topMargin = Md3e.dp(this, 10);
         logCard.addView(btnExport, belp);
         Md3e.attachSpringTouch(btnExport);
 
@@ -653,8 +707,9 @@ public class MainActivity extends Activity {
         });
 
         pageContainer.addView(logCard, lclp);
-        if (advOn) Md3e.popIn(logCard, 45);
+        Md3e.popIn(logCard, 45);
 
+        // 3. 关于
         LinearLayout aboutCard = new LinearLayout(this);
         aboutCard.setOrientation(LinearLayout.VERTICAL);
         aboutCard.setBackground(Md3e.card(this, theme.surfaceLow, 26));
@@ -670,7 +725,7 @@ public class MainActivity extends Activity {
         aboutCard.addView(aboutTitle);
 
         TextView aboutBody = new TextView(this);
-        aboutBody.setText("v1.1.0 · 原生 Root 事件驱动自动化与系统控制中枢\n" +
+        aboutBody.setText("v1.2.0 · 原生 Root 事件驱动自动化与系统控制中枢\n" +
                 "GitHub: https://github.com/MOUAJMD\n" +
                 "酷安开发者账号: @C_AJMD_W");
         aboutBody.setTextSize(13);
@@ -728,5 +783,89 @@ public class MainActivity extends Activity {
 
         pageContainer.addView(aboutCard, aclp);
         Md3e.popIn(aboutCard, 90);
+    }
+
+    private void showImportConfigDialog() {
+        File dir = new File("/storage/emulated/0/Download/FluxCore");
+        List<File> jsonFiles = new ArrayList<>();
+        if (dir.exists() && dir.isDirectory()) {
+            File[] files = dir.listFiles();
+            if (files != null) {
+                Arrays.sort(files, new Comparator<File>() {
+                    @Override public int compare(File a, File b) { return Long.compare(b.lastModified(), a.lastModified()); }
+                });
+                for (File f : files) {
+                    if (f.isFile() && f.getName().endsWith(".json")) jsonFiles.add(f);
+                }
+            }
+        }
+        if (jsonFiles.isEmpty()) {
+            Toast.makeText(this, "未在 Download/FluxCore/ 找到 .json 配置文件", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        final Dialog dlg = new Dialog(this);
+        dlg.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setBackground(Md3e.card(this, theme.bg, 26));
+        int p = Md3e.dp(this, 20);
+        box.setPadding(p, p, p, p);
+
+        TextView title = new TextView(this);
+        title.setText("选择要导入的配置文件");
+        title.setTextSize(19);
+        title.setTypeface(null, Typeface.BOLD);
+        title.setTextColor(theme.textPrimary);
+        box.addView(title);
+
+        final Switch swOverwrite = new Switch(this);
+        swOverwrite.setText("覆盖现有全部情境（关闭则为合并追加）");
+        swOverwrite.setTextColor(theme.textSecondary);
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(-1, -2);
+        slp.topMargin = Md3e.dp(this, 10);
+        slp.bottomMargin = Md3e.dp(this, 10);
+        box.addView(swOverwrite, slp);
+
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        scroll.addView(list);
+        box.addView(scroll, new LinearLayout.LayoutParams(-1, Md3e.dp(this, 260)));
+
+        for (final File f : jsonFiles) {
+            TextView item = new TextView(this);
+            item.setText(f.getName());
+            item.setTextSize(13);
+            item.setTypeface(null, Typeface.BOLD);
+            item.setTextColor(theme.onSecondaryContainer);
+            item.setBackground(Md3e.ripple(this, theme.secondaryContainer, 0x22000000, 16));
+            int ip = Md3e.dp(this, 14);
+            item.setPadding(ip, ip, ip, ip);
+            LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(-1, -2);
+            ilp.bottomMargin = Md3e.dp(this, 8);
+            Md3e.attachSpringTouch(item);
+            item.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    int count = RuleStore.importConfigFromFile(MainActivity.this, f, swOverwrite.isChecked());
+                    dlg.dismiss();
+                    if (count >= 0) {
+                        Toast.makeText(MainActivity.this, "成功导入 " + count + " 条情境规则", Toast.LENGTH_SHORT).show();
+                        renderTab();
+                    } else {
+                        Toast.makeText(MainActivity.this, "配置文件解析失败", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+            list.addView(item, ilp);
+        }
+
+        dlg.setContentView(box);
+        if (dlg.getWindow() != null) {
+            dlg.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            dlg.getWindow().setLayout((int) (getResources().getDisplayMetrics().widthPixels * 0.90), -2);
+        }
+        dlg.show();
     }
 }

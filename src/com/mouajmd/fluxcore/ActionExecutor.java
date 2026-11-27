@@ -1,6 +1,7 @@
 package com.mouajmd.fluxcore;
 
 import android.content.Context;
+import android.media.AudioManager;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -14,6 +15,12 @@ public class ActionExecutor {
         String brightMode;
         String brightVal;
         String wifiOn;
+        String dataOn;
+        String airplaneOn;
+        String lowPower;
+        String nightMode;
+        String autoRotate;
+        int mediaVol = -1;
     }
 
     private static final Map<String, Snapshot> SNAPSHOTS = new HashMap<>();
@@ -28,6 +35,10 @@ public class ActionExecutor {
         ACTIVE_RULES.add(r.id);
         AppLogger.log("EXEC", "触发情境 [" + r.name + "] -> " + r.describeActions());
 
+        if (r.vibrateTrigger) {
+            Md3e.vibratePulse(ctx, 55);
+        }
+
         Snapshot snap = new Snapshot();
         if (r.dndMode >= 0) snap.dnd = RootShell.exec("settings get global zen_mode");
         if (r.refreshRate > 0) {
@@ -39,9 +50,29 @@ public class ActionExecutor {
             snap.brightVal = RootShell.exec("settings get system screen_brightness");
         }
         if (r.wifiAction >= 0) snap.wifiOn = RootShell.exec("settings get global wifi_on");
+        if (r.mobileDataAction >= 0) snap.dataOn = RootShell.exec("settings get global mobile_data");
+        if (r.airplaneAction >= 0) snap.airplaneOn = RootShell.exec("settings get global airplane_mode_on");
+        if (r.batterySaverAction >= 0) snap.lowPower = RootShell.exec("settings get global low_power");
+        if (r.darkModeAction >= 0) snap.nightMode = RootShell.exec("settings get secure ui_night_mode");
+        if (r.autoRotateAction >= 0) snap.autoRotate = RootShell.exec("settings get system accelerometer_rotation");
+
+        if (r.mediaVolume >= 0) {
+            try {
+                AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+                if (am != null) {
+                    snap.mediaVol = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+                    int max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+                    int target = Math.round(max * (Math.max(0, Math.min(100, r.mediaVolume)) / 100f));
+                    am.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0);
+                }
+            } catch (Throwable ignored) {}
+        }
         SNAPSHOTS.put(r.id, snap);
 
         StringBuilder sb = new StringBuilder();
+        if (r.tileComponent != null && !r.tileComponent.trim().isEmpty()) {
+            sb.append("cmd statusbar click-tile ").append(r.tileComponent.trim()).append("\n");
+        }
         for (String pkg : r.killPkgs) {
             if (!pkg.equals(ctx.getPackageName())) {
                 sb.append("am force-stop ").append(pkg).append("\n");
@@ -64,6 +95,25 @@ public class ActionExecutor {
         if (r.wifiAction >= 0) {
             sb.append(r.wifiAction == 1 ? "svc wifi enable\n" : "svc wifi disable\n");
         }
+        if (r.mobileDataAction >= 0) {
+            sb.append(r.mobileDataAction == 1 ? "svc data enable\n" : "svc data disable\n");
+        }
+        if (r.airplaneAction >= 0) {
+            sb.append(r.airplaneAction == 1 ? "cmd connectivity airplane-mode enable\n" : "cmd connectivity airplane-mode disable\n");
+        }
+        if (r.batterySaverAction >= 0) {
+            sb.append("settings put global low_power ").append(r.batterySaverAction).append("\n");
+        }
+        if (r.darkModeAction >= 0) {
+            sb.append(r.darkModeAction == 1 ? "cmd uimode night yes\n" : "cmd uimode night no\n");
+        }
+        if (r.autoRotateAction >= 0) {
+            if (r.autoRotateAction == 1) {
+                sb.append("settings put system accelerometer_rotation 1\n");
+            } else {
+                sb.append("settings put system accelerometer_rotation 0\nsettings put system user_rotation 0\n");
+            }
+        }
         if (r.customCmd != null && !r.customCmd.trim().isEmpty()) {
             sb.append(r.customCmd.trim()).append("\n");
         }
@@ -83,7 +133,17 @@ public class ActionExecutor {
         }
         AppLogger.log("REVERT", "还原情境 [" + r.name + "] 系统状态");
 
+        if (snap != null && r.mediaVolume >= 0 && snap.mediaVol >= 0) {
+            try {
+                AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+                if (am != null) am.setStreamVolume(AudioManager.STREAM_MUSIC, snap.mediaVol, 0);
+            } catch (Throwable ignored) {}
+        }
+
         StringBuilder sb = new StringBuilder();
+        if (r.tileComponent != null && !r.tileComponent.trim().isEmpty()) {
+            sb.append("cmd statusbar click-tile ").append(r.tileComponent.trim()).append("\n");
+        }
         if (snap != null) {
             if (r.dndMode >= 0 && isValid(snap.dnd)) {
                 sb.append("settings put global zen_mode ").append(snap.dnd).append("\n");
@@ -100,6 +160,21 @@ public class ActionExecutor {
             }
             if (r.wifiAction >= 0 && isValid(snap.wifiOn)) {
                 sb.append("1".equals(snap.wifiOn) ? "svc wifi enable\n" : "svc wifi disable\n");
+            }
+            if (r.mobileDataAction >= 0 && isValid(snap.dataOn)) {
+                sb.append("1".equals(snap.dataOn) ? "svc data enable\n" : "svc data disable\n");
+            }
+            if (r.airplaneAction >= 0 && isValid(snap.airplaneOn)) {
+                sb.append("1".equals(snap.airplaneOn) ? "cmd connectivity airplane-mode enable\n" : "cmd connectivity airplane-mode disable\n");
+            }
+            if (r.batterySaverAction >= 0 && isValid(snap.lowPower)) {
+                sb.append("settings put global low_power ").append(snap.lowPower).append("\n");
+            }
+            if (r.darkModeAction >= 0 && isValid(snap.nightMode)) {
+                sb.append("2".equals(snap.nightMode) ? "cmd uimode night yes\n" : "cmd uimode night no\n");
+            }
+            if (r.autoRotateAction >= 0 && isValid(snap.autoRotate)) {
+                sb.append("settings put system accelerometer_rotation ").append(snap.autoRotate).append("\n");
             }
         }
         if (r.revertCmd != null && !r.revertCmd.trim().isEmpty()) {
