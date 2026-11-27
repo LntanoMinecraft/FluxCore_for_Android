@@ -1,7 +1,10 @@
 package com.mouajmd.fluxcore.ui
 
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.fadeIn
@@ -37,6 +40,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.mouajmd.fluxcore.R
+import com.mouajmd.fluxcore.service.FluxService
 import com.mouajmd.fluxcore.system.TileRequestOutcome
 import com.mouajmd.fluxcore.ui.components.FloatingPillNavBar
 import com.mouajmd.fluxcore.ui.components.FluxNavigationRail
@@ -186,6 +190,7 @@ fun FluxCoreApp(viewModel: FluxCoreViewModel) {
                                 systemHealth = systemHealth,
                                 isWideScreen = isWideScreen,
                                 onRefreshStatus = viewModel::refreshSystemStatus,
+                                onTryGrantDnd = viewModel::tryGrantDndViaRoot,
                                 onStartService = viewModel::startEngineService,
                                 onCreateRule = { navController.navigate(RouteRuleEditor(null)) },
                                 onEditRule = { rule -> navController.navigate(RouteRuleEditor(rule.id)) },
@@ -263,6 +268,45 @@ fun FluxCoreApp(viewModel: FluxCoreViewModel) {
                                 onRefreshLocalBackups = viewModel::refreshLocalBackupFiles,
                                 onToggleAdvanced = viewModel::setAdvancedMode,
                                 onToggleHaptic = viewModel::setHapticEnabled,
+                                onToggleHideNotification = { hide ->
+                                    viewModel.setHidePersistentNotification(hide) { appliedViaRoot ->
+                                        if (appliedViaRoot) {
+                                            showSnack(
+                                                ctx.getString(
+                                                    if (hide) R.string.settings_hide_notif_hidden_ok
+                                                    else R.string.settings_hide_notif_shown_ok
+                                                )
+                                            )
+                                        } else {
+                                            runCatching {
+                                                ctx.startActivity(
+                                                    Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
+                                                        putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
+                                                        putExtra(Settings.EXTRA_CHANNEL_ID, FluxService.DAEMON_CHANNEL_ID)
+                                                    }
+                                                )
+                                            }.onFailure {
+                                                runCatching {
+                                                    ctx.startActivity(
+                                                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                                            putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
+                                                        }
+                                                    )
+                                                }.onFailure {
+                                                    runCatching {
+                                                        ctx.startActivity(
+                                                            Intent(
+                                                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                                                Uri.parse("package:${ctx.packageName}")
+                                                            )
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            showSnack(ctx.getString(R.string.settings_hide_notif_fallback))
+                                        }
+                                    }
+                                },
                                 onSelectThemeMode = viewModel::setThemeMode,
                                 onSelectLanguage = { mode ->
                                     viewModel.setLanguageMode(mode)

@@ -2,7 +2,12 @@ package com.mouajmd.fluxcore.ui.screens
 
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -114,7 +119,7 @@ import com.mouajmd.fluxcore.model.TriggerType
 import com.mouajmd.fluxcore.system.HapticEngine
 import com.mouajmd.fluxcore.ui.components.AppPickerSheet
 import com.mouajmd.fluxcore.ui.components.ExpressivePercentSlider
-import com.mouajmd.fluxcore.ui.components.ExtraConditionDialog
+import com.mouajmd.fluxcore.ui.components.ExtraConditionSheet
 import com.mouajmd.fluxcore.ui.components.FluxModalBottomSheet
 import com.mouajmd.fluxcore.ui.components.QsTilePickerSheet
 import com.mouajmd.fluxcore.ui.components.ScriptScannerSheet
@@ -163,10 +168,13 @@ fun RuleEditorScreen(
     val actionSteps = remember(base) { mutableStateListOf<ActionStep>().apply { addAll(base.actionSteps) } }
     var revertCmd by remember(base) { mutableStateOf(base.revertCmd) }
 
-    // Drag-to-reorder state for actionSteps
+    // Drag-to-reorder physics state for actionSteps
     var draggingStepId by remember { mutableStateOf<String?>(null) }
+    var settlingStepId by remember { mutableStateOf<String?>(null) }
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    val settleOffsetAnim = remember { Animatable(0f) }
     val stepHeightsPx = remember { mutableStateMapOf<String, Int>() }
+    val neighborOffsetAnims = remember { mutableMapOf<String, Animatable<Float, AnimationVector1D>>() }
 
     // Sheet & Dialog triggers
     var showTriggerAppPicker by remember { mutableStateOf(false) }
@@ -614,13 +622,48 @@ fun RuleEditorScreen(
                     }
                 } else {
                     val spacingPx = with(density) { 10.dp.toPx() }
+
+                    fun animateNeighborShift(stepId: String, fromDeltaPx: Float) {
+                        val anim = neighborOffsetAnims.getOrPut(stepId) { Animatable(0f) }
+                        scope.launch {
+                            anim.snapTo(anim.value + fromDeltaPx)
+                            anim.animateTo(
+                                targetValue = 0f,
+                                animationSpec = spring(dampingRatio = 0.72f, stiffness = 420f)
+                            )
+                        }
+                    }
+
+                    fun clampDragOffset(curIdx: Int, rawOffset: Float): Float {
+                        var maxUp = 0f
+                        for (k in 0 until curIdx) {
+                            maxUp += (stepHeightsPx[actionSteps[k].id] ?: 160).toFloat() + spacingPx
+                        }
+                        var maxDown = 0f
+                        for (k in (curIdx + 1) until actionSteps.size) {
+                            maxDown += (stepHeightsPx[actionSteps[k].id] ?: 160).toFloat() + spacingPx
+                        }
+                        return rawOffset.coerceIn(-maxUp, maxDown)
+                    }
+
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         actionSteps.forEachIndexed { index, step ->
                             key(step.id) {
                                 val isDragging = draggingStepId == step.id
+                                val isSettling = settlingStepId == step.id
+                                val isElevated = isDragging || isSettling
+                                val neighborAnim = remember(step.id) {
+                                    neighborOffsetAnims.getOrPut(step.id) { Animatable(0f) }
+                                }
                                 val elevation by animateDpAsState(
-                                    targetValue = if (isDragging) 10.dp else 0.dp,
+                                    targetValue = if (isDragging) 12.dp else 0.dp,
+                                    animationSpec = spring(dampingRatio = 0.8f, stiffness = 450f),
                                     label = "dragElevation"
+                                )
+                                val scale by animateFloatAsState(
+                                    targetValue = if (isDragging) 1.02f else 1f,
+                                    animationSpec = spring(dampingRatio = 0.78f, stiffness = 500f),
+                                    label = "dragScale"
                                 )
 
                                 ActionStepPipelineCard(
@@ -630,47 +673,105 @@ fun RuleEditorScreen(
                                     isDragging = isDragging,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .zIndex(if (isDragging) 10f else 0f)
+                                        .zIndex(if (isElevated) 10f else 0f)
                                         .onSizeChanged { sz -> stepHeightsPx[step.id] = sz.height }
                                         .graphicsLayer {
-                                            translationY = if (isDragging) dragOffsetY else 0f
-                                            scaleX = if (isDragging) 1.02f else 1f
-                                            scaleY = if (isDragging) 1.02f else 1f
+                                            translationY = when {
+                                                isDragging -> dragOffsetY
+                                                isSettling -> settleOffsetAnim.value
+                                                else -> neighborAnim.value
+                                            }
+                                            scaleX = scale
+                                            scaleY = scale
                                             shadowElevation = with(density) { elevation.toPx() }
                                         },
                                     dragHandleModifier = Modifier
                                         .pointerInput(step.id) {
                                             detectDragGestures(
                                                 onDragStart = {
+                                                    if (settlingStepId == step.id) {
+                                                        settlingStepId = null
+                                                    }
                                                     draggingStepId = step.id
-                                                    dragOffsetY = 0f
+                                                    dragOffsetY = neighborAnim.value
+                                                    scope.launch { neighborAnim.snapTo(0f) }
                                                     HapticEngine.dragStart(view)
                                                 },
                                                 onDragEnd = {
+                                                    val releaseOffset = dragOffsetY
                                                     draggingStepId = null
                                                     dragOffsetY = 0f
+                                                    settlingStepId = step.id
+                                                    scope.launch {
+                                                        settleOffsetAnim.snapTo(releaseOffset)
+                                                        settleOffsetAnim.animateTo(
+                                                            targetValue = 0f,
+                                                            animationSpec = spring(
+                                                                dampingRatio = 0.75f,
+                                                                stiffness = 500f
+                                                            )
+                                                        )
+                                                        if (settlingStepId == step.id) {
+                                                            settlingStepId = null
+                                                        }
+                                                    }
                                                 },
                                                 onDragCancel = {
+                                                    val releaseOffset = dragOffsetY
                                                     draggingStepId = null
                                                     dragOffsetY = 0f
+                                                    settlingStepId = step.id
+                                                    scope.launch {
+                                                        settleOffsetAnim.snapTo(releaseOffset)
+                                                        settleOffsetAnim.animateTo(
+                                                            targetValue = 0f,
+                                                            animationSpec = spring(
+                                                                dampingRatio = 0.75f,
+                                                                stiffness = 500f
+                                                            )
+                                                        )
+                                                        if (settlingStepId == step.id) {
+                                                            settlingStepId = null
+                                                        }
+                                                    }
                                                 },
                                                 onDrag = { change, dragAmount ->
                                                     change.consume()
-                                                    dragOffsetY += dragAmount.y
-                                                    val curIdx = actionSteps.indexOfFirst { it.id == step.id }
+                                                    var curIdx = actionSteps.indexOfFirst { it.id == step.id }
                                                     if (curIdx >= 0) {
-                                                        val curHeight = (stepHeightsPx[step.id] ?: 160).toFloat() + spacingPx
-                                                        val thresholdPx = curHeight * 0.55f
-                                                        if (dragOffsetY > thresholdPx && curIdx < actionSteps.lastIndex) {
-                                                            val item = actionSteps.removeAt(curIdx)
-                                                            actionSteps.add(curIdx + 1, item)
-                                                            dragOffsetY -= curHeight
-                                                            HapticEngine.dragTick(view)
-                                                        } else if (dragOffsetY < -thresholdPx && curIdx > 0) {
-                                                            val item = actionSteps.removeAt(curIdx)
-                                                            actionSteps.add(curIdx - 1, item)
-                                                            dragOffsetY += curHeight
-                                                            HapticEngine.dragTick(view)
+                                                        dragOffsetY = clampDragOffset(curIdx, dragOffsetY + dragAmount.y)
+                                                        val selfSlot = (stepHeightsPx[step.id] ?: 160).toFloat() + spacingPx
+
+                                                        // Handle downward swaps (compensate by neighbor height to eliminate jump)
+                                                        while (curIdx < actionSteps.lastIndex) {
+                                                            val nextStep = actionSteps[curIdx + 1]
+                                                            val nextSlot = (stepHeightsPx[nextStep.id] ?: 160).toFloat() + spacingPx
+                                                            if (dragOffsetY > nextSlot * 0.52f) {
+                                                                val item = actionSteps.removeAt(curIdx)
+                                                                actionSteps.add(curIdx + 1, item)
+                                                                curIdx++
+                                                                dragOffsetY = clampDragOffset(curIdx, dragOffsetY - nextSlot)
+                                                                animateNeighborShift(nextStep.id, selfSlot)
+                                                                HapticEngine.dragTick(view)
+                                                            } else {
+                                                                break
+                                                            }
+                                                        }
+
+                                                        // Handle upward swaps
+                                                        while (curIdx > 0) {
+                                                            val prevStep = actionSteps[curIdx - 1]
+                                                            val prevSlot = (stepHeightsPx[prevStep.id] ?: 160).toFloat() + spacingPx
+                                                            if (dragOffsetY < -prevSlot * 0.52f) {
+                                                                val item = actionSteps.removeAt(curIdx)
+                                                                actionSteps.add(curIdx - 1, item)
+                                                                curIdx--
+                                                                dragOffsetY = clampDragOffset(curIdx, dragOffsetY + prevSlot)
+                                                                animateNeighborShift(prevStep.id, -selfSlot)
+                                                                HapticEngine.dragTick(view)
+                                                            } else {
+                                                                break
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -683,17 +784,27 @@ fun RuleEditorScreen(
                                     onMoveUp = {
                                         val i = actionSteps.indexOfFirst { it.id == step.id }
                                         if (i > 0) {
+                                            val prevStep = actionSteps[i - 1]
+                                            val selfSlot = (stepHeightsPx[step.id] ?: 160).toFloat() + spacingPx
+                                            val prevSlot = (stepHeightsPx[prevStep.id] ?: 160).toFloat() + spacingPx
                                             HapticEngine.dragTick(view)
                                             val item = actionSteps.removeAt(i)
                                             actionSteps.add(i - 1, item)
+                                            animateNeighborShift(step.id, prevSlot)
+                                            animateNeighborShift(prevStep.id, -selfSlot)
                                         }
                                     },
                                     onMoveDown = {
                                         val i = actionSteps.indexOfFirst { it.id == step.id }
                                         if (i in 0 until actionSteps.lastIndex) {
+                                            val nextStep = actionSteps[i + 1]
+                                            val selfSlot = (stepHeightsPx[step.id] ?: 160).toFloat() + spacingPx
+                                            val nextSlot = (stepHeightsPx[nextStep.id] ?: 160).toFloat() + spacingPx
                                             HapticEngine.dragTick(view)
                                             val item = actionSteps.removeAt(i)
                                             actionSteps.add(i + 1, item)
+                                            animateNeighborShift(step.id, -nextSlot)
+                                            animateNeighborShift(nextStep.id, selfSlot)
                                         }
                                     },
                                     onRemove = {
@@ -701,6 +812,8 @@ fun RuleEditorScreen(
                                         if (i >= 0) {
                                             HapticEngine.click(view)
                                             actionSteps.removeAt(i)
+                                            stepHeightsPx.remove(step.id)
+                                            neighborOffsetAnims.remove(step.id)
                                         }
                                     },
                                     onOpenTilePicker = { tilePickerTargetStepId = step.id },
@@ -836,7 +949,11 @@ fun RuleEditorScreen(
     }
 
     if (showExtraCondDialog) {
-        ExtraConditionDialog(
+        ExtraConditionSheet(
+            advancedMode = advancedMode,
+            onDetectWifi = onDetectWifi,
+            onDetectBt = onDetectBt,
+            onShowMessage = onShowMessage,
             onDismiss = { showExtraCondDialog = false },
             onAdd = {
                 extraConditions.add(it)
@@ -974,13 +1091,17 @@ private fun ActionStepPipelineCard(
     onOpenScriptScanner: () -> Unit
 ) {
     val view = LocalView.current
-    Surface(
-        shape = RoundedCornerShape(22.dp),
-        color = if (isDragging) {
-            MaterialTheme.colorScheme.secondaryContainer
+    val cardColor by animateColorAsState(
+        targetValue = if (isDragging) {
+            MaterialTheme.colorScheme.surfaceContainerHighest
         } else {
             MaterialTheme.colorScheme.surfaceContainer
         },
+        label = "stepCardColor"
+    )
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = cardColor,
         modifier = modifier
     ) {
         Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp)) {

@@ -95,6 +95,7 @@ fun ProfilesScreen(
     systemHealth: SystemHealthStatus,
     isWideScreen: Boolean,
     onRefreshStatus: () -> Unit,
+    onTryGrantDnd: ((Boolean) -> Unit) -> Unit,
     onStartService: () -> Unit,
     onCreateRule: () -> Unit,
     onEditRule: (AutomationRule) -> Unit,
@@ -204,7 +205,17 @@ fun ProfilesScreen(
                         },
                         onOpenDndSettings = {
                             HapticEngine.click(view)
-                            openDndAccessSettings()
+                            if (systemHealth.hasRoot) {
+                                onTryGrantDnd { granted ->
+                                    if (granted) {
+                                        HapticEngine.confirm(view)
+                                    } else {
+                                        openDndAccessSettings()
+                                    }
+                                }
+                            } else {
+                                openDndAccessSettings()
+                            }
                         },
                         onStartService = {
                             HapticEngine.confirm(view)

@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Vibration
@@ -90,6 +91,7 @@ fun SettingsScreen(
     onRefreshLocalBackups: () -> Unit,
     onToggleAdvanced: (Boolean) -> Unit,
     onToggleHaptic: (Boolean) -> Unit,
+    onToggleHideNotification: (Boolean) -> Unit,
     onSelectThemeMode: (ThemeMode) -> Unit,
     onSelectLanguage: (LanguageMode) -> Unit,
     onToggleDynamicColor: (Boolean) -> Unit,
@@ -156,6 +158,17 @@ fun SettingsScreen(
                         onCheckedChange = { enabled ->
                             onToggleHaptic(enabled)
                             if (enabled) HapticEngine.toggle(view, true)
+                        }
+                    )
+                    SettingsSwitchRow(
+                        icon = Icons.Rounded.NotificationsOff,
+                        title = stringResource(R.string.settings_hide_notif_title),
+                        subtitle = stringResource(R.string.settings_hide_notif_desc),
+                        checked = settings.hidePersistentNotification,
+                        testTag = "switch_hide_persistent_notif",
+                        onCheckedChange = { hide ->
+                            HapticEngine.toggle(view, hide)
+                            onToggleHideNotification(hide)
                         }
                     )
                 }

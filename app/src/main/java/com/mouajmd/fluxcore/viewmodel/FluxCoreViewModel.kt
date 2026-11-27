@@ -25,6 +25,7 @@ import com.mouajmd.fluxcore.system.ShortcutHelper
 import com.mouajmd.fluxcore.system.TileRequestOutcome
 import com.mouajmd.fluxcore.system.TileSlotManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -93,29 +94,65 @@ class FluxCoreViewModel(application: Application) : AndroidViewModel(application
         refreshSystemStatus()
     }
 
+    private fun readSystemHealth(): SystemHealthStatus {
+        val rootOk = RootShell.hasRoot()
+        val pm = appCtx.getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val batteryOk = runCatching {
+            pm?.isIgnoringBatteryOptimizations(appCtx.packageName) == true
+        }.getOrDefault(false)
+        val nm = appCtx.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        val dndOk = runCatching {
+            nm?.isNotificationPolicyAccessGranted == true
+        }.getOrDefault(false)
+
+        if (rootOk && !FluxService.isRunning.value) {
+            FluxService.start(appCtx)
+        }
+
+        return SystemHealthStatus(
+            hasRoot = rootOk,
+            batteryUnrestricted = batteryOk,
+            hasDndAccess = dndOk,
+            serviceRunning = FluxService.isRunning.value,
+            checkedOnce = true
+        )
+    }
+
     fun refreshSystemStatus() {
         viewModelScope.launch(Dispatchers.IO) {
-            val rootOk = RootShell.hasRoot()
-            val pm = appCtx.getSystemService(Context.POWER_SERVICE) as? PowerManager
-            val batteryOk = runCatching {
-                pm?.isIgnoringBatteryOptimizations(appCtx.packageName) == true
-            }.getOrDefault(false)
+            _rawHealth.value = readSystemHealth()
+        }
+    }
+
+    fun tryGrantDndViaRoot(onResult: (Boolean) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
             val nm = appCtx.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-            val dndOk = runCatching {
+            var granted = runCatching {
                 nm?.isNotificationPolicyAccessGranted == true
             }.getOrDefault(false)
 
-            if (rootOk && !FluxService.isRunning.value) {
-                FluxService.start(appCtx)
+            if (!granted && RootShell.hasRoot()) {
+                val pkg = RootShell.shellQuote(appCtx.packageName)
+                val res = RootShell.execDetailed("cmd notification allow_dnd $pkg")
+                AppLogger.log(
+                    "PERM",
+                    "Root allow_dnd (exit=${res.exitCode}): ${res.output.ifBlank { "ok" }}"
+                )
+                granted = runCatching {
+                    nm?.isNotificationPolicyAccessGranted == true
+                }.getOrDefault(false)
+                if (!granted) {
+                    delay(150L)
+                    granted = runCatching {
+                        nm?.isNotificationPolicyAccessGranted == true
+                    }.getOrDefault(false)
+                }
             }
 
-            _rawHealth.value = SystemHealthStatus(
-                hasRoot = rootOk,
-                batteryUnrestricted = batteryOk,
-                hasDndAccess = dndOk,
-                serviceRunning = FluxService.isRunning.value,
-                checkedOnce = true
-            )
+            _rawHealth.value = readSystemHealth()
+            withContext(Dispatchers.Main) {
+                onResult(granted)
+            }
         }
     }
 
@@ -247,6 +284,30 @@ class FluxCoreViewModel(application: Application) : AndroidViewModel(application
 
     fun setHapticEnabled(enabled: Boolean) {
         SettingsStore.setHapticEnabled(appCtx, enabled)
+    }
+
+    fun setHidePersistentNotification(hide: Boolean, onComplete: (appliedViaRoot: Boolean) -> Unit) {
+        SettingsStore.setHidePersistentNotification(appCtx, hide)
+        FluxService.ensureDaemonChannel(appCtx)
+        viewModelScope.launch(Dispatchers.IO) {
+            val mode = if (hide) "ignore" else "allow"
+            var appliedViaRoot = false
+            if (RootShell.hasRoot()) {
+                val pkg = RootShell.shellQuote(appCtx.packageName)
+                val res = RootShell.execDetailed("cmd appops set $pkg POST_NOTIFICATION $mode")
+                appliedViaRoot = res.isSuccess
+                AppLogger.log(
+                    "PERM",
+                    "Root POST_NOTIFICATION $mode (exit=${res.exitCode}): ${res.output.ifBlank { "ok" }}"
+                )
+            }
+            if (appliedViaRoot && FluxService.isRunning.value) {
+                FluxService.refreshNotification(appCtx)
+            }
+            withContext(Dispatchers.Main) {
+                onComplete(appliedViaRoot)
+            }
+        }
     }
 
     fun setThemeMode(mode: ThemeMode) {

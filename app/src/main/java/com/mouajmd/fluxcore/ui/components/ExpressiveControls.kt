@@ -116,6 +116,7 @@ fun TonalFilterChip(
     onClick: () -> Unit,
     label: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    leadingIcon: (@Composable () -> Unit)? = null,
     usePrimaryContainer: Boolean = false
 ) {
     val selectedBg = if (usePrimaryContainer) {
@@ -132,6 +133,7 @@ fun TonalFilterChip(
         selected = selected,
         onClick = onClick,
         label = label,
+        leadingIcon = leadingIcon,
         modifier = modifier,
         shape = CircleShape,
         border = null,

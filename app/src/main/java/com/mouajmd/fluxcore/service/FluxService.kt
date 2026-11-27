@@ -66,6 +66,10 @@ class FluxService : Service() {
             "([a-zA-Z0-9_]+(?:\\.[a-zA-Z0-9_]+)+)/"
         )
 
+        const val DAEMON_CHANNEL_ID = "fluxcore_daemon_channel"
+        const val DAEMON_NOTIF_ID = 101
+        private const val LEGACY_CHANNEL_ID = "fluxcore_engine"
+
         private val _isRunning = MutableStateFlow(false)
         val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
 
@@ -75,6 +79,51 @@ class FluxService : Service() {
                 context.applicationContext.startForegroundService(intent)
             }.onFailure {
                 AppLogger.warn("ENGINE", "Service start skipped: ${it.message}")
+            }
+        }
+
+        fun ensureDaemonChannel(context: Context) {
+            val appCtx = context.applicationContext
+            val nm = appCtx.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+            runCatching { nm.deleteNotificationChannel(LEGACY_CHANNEL_ID) }
+            val channel = NotificationChannel(
+                DAEMON_CHANNEL_ID,
+                appCtx.getString(R.string.notif_channel_name),
+                NotificationManager.IMPORTANCE_MIN
+            ).apply {
+                setShowBadge(false)
+                setSound(null, null)
+                enableVibration(false)
+                enableLights(false)
+            }
+            nm.createNotificationChannel(channel)
+        }
+
+        fun buildDaemonNotification(context: Context): Notification {
+            val appCtx = context.applicationContext
+            ensureDaemonChannel(appCtx)
+            val openIntent = Intent(appCtx, MainActivity::class.java)
+            val pending = PendingIntent.getActivity(
+                appCtx,
+                0,
+                openIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            return Notification.Builder(appCtx, DAEMON_CHANNEL_ID)
+                .setContentTitle(appCtx.getString(R.string.notif_title))
+                .setContentText(appCtx.getString(R.string.notif_body))
+                .setSmallIcon(R.drawable.ic_qs_flux)
+                .setContentIntent(pending)
+                .setOngoing(true)
+                .build()
+        }
+
+        fun refreshNotification(context: Context) {
+            if (!_isRunning.value) return
+            val appCtx = context.applicationContext
+            runCatching {
+                val nm = appCtx.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                nm?.notify(DAEMON_NOTIF_ID, buildDaemonNotification(appCtx))
             }
         }
     }
@@ -222,33 +271,7 @@ class FluxService : Service() {
     }
 
     private fun startForegroundCompat() {
-        val channelId = "fluxcore_engine"
-        val channel = NotificationChannel(
-            channelId,
-            getString(R.string.notif_channel_name),
-            NotificationManager.IMPORTANCE_MIN
-        ).apply {
-            setShowBadge(false)
-        }
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-        nm?.createNotificationChannel(channel)
-
-        val openIntent = Intent(this, MainActivity::class.java)
-        val pending = PendingIntent.getActivity(
-            this,
-            0,
-            openIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        val notif = Notification.Builder(this, channelId)
-            .setContentTitle(getString(R.string.notif_title))
-            .setContentText(getString(R.string.notif_body))
-            .setSmallIcon(R.drawable.ic_qs_flux)
-            .setContentIntent(pending)
-            .setOngoing(true)
-            .build()
-        startForeground(101, notif)
+        startForeground(DAEMON_NOTIF_ID, buildDaemonNotification(this))
     }
 
     private fun onForegroundPackageDetected(pkg: String) {

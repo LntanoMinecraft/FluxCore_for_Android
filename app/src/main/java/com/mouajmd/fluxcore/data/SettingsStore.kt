@@ -26,7 +26,8 @@ data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
     val paletteIndex: Int = 0,
-    val languageMode: LanguageMode = LanguageMode.SYSTEM
+    val languageMode: LanguageMode = LanguageMode.SYSTEM,
+    val hidePersistentNotification: Boolean = false
 )
 
 object SettingsStore {
@@ -34,6 +35,7 @@ object SettingsStore {
     private const val PREF_LEGACY = "fluxcore_rules_v1"
     private const val KEY_ADVANCED = "advanced_mode"
     private const val KEY_HAPTIC = "haptic_enabled"
+    private const val KEY_HIDE_PERSISTENT_NOTIF = "hide_persistent_notification"
     private const val KEY_THEME_MODE = "theme_mode"
     private const val KEY_DYNAMIC_COLOR = "dynamic_color"
     private const val KEY_PALETTE_INDEX = "palette_index"
@@ -52,6 +54,7 @@ object SettingsStore {
 
         val advanced = legacySp.getBoolean(KEY_ADVANCED, sp.getBoolean(KEY_ADVANCED, false))
         val haptic = sp.getBoolean(KEY_HAPTIC, true)
+        val hideNotif = sp.getBoolean(KEY_HIDE_PERSISTENT_NOTIF, false)
         val theme = runCatching {
             ThemeMode.valueOf(sp.getString(KEY_THEME_MODE, ThemeMode.SYSTEM.name) ?: ThemeMode.SYSTEM.name)
         }.getOrDefault(ThemeMode.SYSTEM)
@@ -65,7 +68,8 @@ object SettingsStore {
             themeMode = theme,
             dynamicColor = dynamic,
             paletteIndex = palette,
-            languageMode = lang
+            languageMode = lang,
+            hidePersistentNotification = hideNotif
         )
     }
 
@@ -100,6 +104,12 @@ object SettingsStore {
         context.applicationContext.getSharedPreferences(PREF_SETTINGS, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_HAPTIC, enabled).apply()
         _settings.value = _settings.value.copy(hapticEnabled = enabled)
+    }
+
+    fun setHidePersistentNotification(context: Context, hide: Boolean) {
+        context.applicationContext.getSharedPreferences(PREF_SETTINGS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_HIDE_PERSISTENT_NOTIF, hide).apply()
+        _settings.value = _settings.value.copy(hidePersistentNotification = hide)
     }
 
     fun setThemeMode(context: Context, mode: ThemeMode) {

@@ -107,7 +107,22 @@
     <string name="trigger_bt_detect">Read connected BT</string>
     <string name="trigger_time_hint">Time range, e.g. 23:00-07:00</string>
     <string name="trigger_extra_and_title">Extra Conditions (AND)</string>
-    <string name="trigger_add_extra">Add AND condition</string>
+    <string name="trigger_add_extra">Add AND Condition</string>
+    <string name="cond_type_section">Condition Type</string>
+    <string name="cond_config_section">Parameters</string>
+    <string name="cond_screen_on">Screen On</string>
+    <string name="cond_screen_off">Screen Off</string>
+    <string name="cond_connected">Connected</string>
+    <string name="cond_disconnected">Disconnected</string>
+    <string name="cond_battery_gte">At or above</string>
+    <string name="cond_battery_lte">At or below</string>
+    <string name="cond_time_start">Start Time</string>
+    <string name="cond_time_end">End Time</string>
+    <string name="cond_time_overnight">Overnight span</string>
+    <string name="cond_add_btn">Add Condition</string>
+    <string name="cond_wifi_not_connected">No active Wi-Fi detected</string>
+    <string name="cond_bt_none_detected">No connected Bluetooth device</string>
+    <string name="cond_app_empty_hint">Select at least one app</string>
 
     <!-- Ordered Action Pipeline -->
     <string name="editor_section_actions">Actions</string>
@@ -211,6 +226,11 @@
     <string name="settings_advanced_desc">Multi-app sets, specific Wi-Fi/BT &amp; AND rules</string>
     <string name="settings_haptic_title">Haptic Feedback</string>
     <string name="settings_haptic_desc">Tactile ticks for tabs, switches, sliders &amp; drag</string>
+    <string name="settings_hide_notif_title">Hide Persistent Notification</string>
+    <string name="settings_hide_notif_desc">Hide status bar icon without affecting monitoring</string>
+    <string name="settings_hide_notif_hidden_ok">Persistent notification hidden</string>
+    <string name="settings_hide_notif_shown_ok">Persistent notification restored</string>
+    <string name="settings_hide_notif_fallback">Opened notification channel settings</string>
 
     <string name="settings_group_appearance">Appearance</string>
     <string name="settings_theme_mode">Theme Mode</string>

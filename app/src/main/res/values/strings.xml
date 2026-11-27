@@ -108,6 +108,21 @@
     <string name="trigger_time_hint">时间范围，如 23:00-07:00</string>
     <string name="trigger_extra_and_title">附加条件（AND）</string>
     <string name="trigger_add_extra">添加附加条件</string>
+    <string name="cond_type_section">条件类型</string>
+    <string name="cond_config_section">条件参数</string>
+    <string name="cond_screen_on">亮屏时</string>
+    <string name="cond_screen_off">息屏时</string>
+    <string name="cond_connected">已连接</string>
+    <string name="cond_disconnected">已断开</string>
+    <string name="cond_battery_gte">高于或等于</string>
+    <string name="cond_battery_lte">低于或等于</string>
+    <string name="cond_time_start">开始时间</string>
+    <string name="cond_time_end">结束时间</string>
+    <string name="cond_time_overnight">跨零点时段</string>
+    <string name="cond_add_btn">添加条件</string>
+    <string name="cond_wifi_not_connected">未检测到已连接的 Wi-Fi</string>
+    <string name="cond_bt_none_detected">未检测到已连接的蓝牙设备</string>
+    <string name="cond_app_empty_hint">请至少选择一个目标应用</string>
 
     <!-- Ordered Action Pipeline -->
     <string name="editor_section_actions">执行动作</string>
@@ -211,6 +226,11 @@
     <string name="settings_advanced_desc">多应用集合、指定 Wi-Fi/蓝牙与 AND 条件</string>
     <string name="settings_haptic_title">触摸反馈</string>
     <string name="settings_haptic_desc">导航栏、开关、滑块与拖拽的震动反馈</string>
+    <string name="settings_hide_notif_title">隐藏常驻通知</string>
+    <string name="settings_hide_notif_desc">隐藏状态栏运行中通知，不影响后台监听</string>
+    <string name="settings_hide_notif_hidden_ok">已隐藏常驻运行通知</string>
+    <string name="settings_hide_notif_shown_ok">已恢复显示常驻通知</string>
+    <string name="settings_hide_notif_fallback">已跳转通知渠道设置，请手动调整</string>
 
     <string name="settings_group_appearance">外观</string>
     <string name="settings_theme_mode">深浅色模式</string>

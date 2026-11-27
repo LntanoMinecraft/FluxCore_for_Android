@@ -2,18 +2,27 @@ package com.mouajmd.fluxcore.ui.components
 
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.util.LruCache
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -29,11 +38,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.BatteryChargingFull
+import androidx.compose.material.icons.rounded.BatteryStd
+import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -43,16 +60,17 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,7 +79,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -69,12 +92,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.drawable.toBitmap
 import com.mouajmd.fluxcore.R
-import com.mouajmd.fluxcore.system.HapticEngine
 import com.mouajmd.fluxcore.model.RuleCondition
 import com.mouajmd.fluxcore.model.ScriptCategory
 import com.mouajmd.fluxcore.model.ShellScriptItem
 import com.mouajmd.fluxcore.model.TriggerType
+import com.mouajmd.fluxcore.system.HapticEngine
 import com.mouajmd.fluxcore.ui.theme.JetBrainsMonoFamily
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -82,7 +106,70 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.roundToInt
+
+private object AppIconCache {
+    private val cache = LruCache<String, ImageBitmap>(180)
+    fun get(packageName: String): ImageBitmap? = cache.get(packageName)
+    fun put(packageName: String, bitmap: ImageBitmap) {
+        cache.put(packageName, bitmap)
+    }
+}
+
+@Composable
+private fun AppPackageIcon(
+    packageName: String,
+    isPicked: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val ctx = LocalContext.current
+    val density = LocalDensity.current
+    val iconPx = remember(density) { with(density) { 40.dp.roundToPx() }.coerceIn(64, 160) }
+    var iconBitmap by remember(packageName) { mutableStateOf(AppIconCache.get(packageName)) }
+
+    LaunchedEffect(packageName) {
+        if (iconBitmap == null) {
+            val loaded = withContext(Dispatchers.IO) {
+                AppIconCache.get(packageName) ?: runCatching {
+                    val drawable = ctx.packageManager.getApplicationIcon(packageName)
+                    drawable.toBitmap(iconPx, iconPx).asImageBitmap().also {
+                        AppIconCache.put(packageName, it)
+                    }
+                }.getOrNull()
+            }
+            if (loaded != null) {
+                iconBitmap = loaded
+            }
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(
+                if (isPicked) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceContainerHigh
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        val bmp = iconBitmap
+        if (bmp != null) {
+            Image(
+                bitmap = bmp,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Rounded.Apps,
+                contentDescription = null,
+                tint = if (isPicked) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+    }
+}
 
 private data class InstalledAppEntry(
     val label: String,
@@ -236,10 +323,9 @@ fun AppPickerSheet(
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Apps,
-                                    contentDescription = null,
-                                    tint = if (isPicked) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.primary
+                                AppPackageIcon(
+                                    packageName = app.packageName,
+                                    isPicked = isPicked
                                 )
                                 Spacer(Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
@@ -742,158 +828,498 @@ fun ShortcutPinDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ExtraConditionDialog(
+fun ExtraConditionSheet(
+    advancedMode: Boolean,
+    onDetectWifi: suspend () -> String,
+    onDetectBt: suspend () -> List<String>,
+    onShowMessage: (String) -> Unit,
     onDismiss: () -> Unit,
     onAdd: (RuleCondition) -> Unit
 ) {
+    val ctx = LocalContext.current
     val view = LocalView.current
+    val scope = rememberCoroutineScope()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val autoTypes = remember { TriggerType.entries.filter { it != TriggerType.MANUAL } }
+
     var selectedType by remember { mutableStateOf(TriggerType.CHARGING) }
     var stateOn by remember { mutableStateOf(true) }
     var targetName by remember { mutableStateOf("") }
-    var threshold by remember { mutableFloatStateOf(20f) }
+    var threshold by remember { mutableIntStateOf(20) }
     var pkgs by remember { mutableStateOf<List<String>>(emptyList()) }
-    var showAppPicker by remember { mutableStateOf(false) }
+    var startHour by remember { mutableIntStateOf(23) }
+    var startMinute by remember { mutableIntStateOf(0) }
+    var endHour by remember { mutableIntStateOf(7) }
+    var endMinute by remember { mutableIntStateOf(0) }
 
-    AlertDialog(
+    var btCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
+    var showAppPicker by remember { mutableStateOf(false) }
+    var pickingStartTime by remember { mutableStateOf<Boolean?>(null) }
+
+    fun formatHm(h: Int, m: Int): String = String.format(Locale.US, "%02d:%02d", h, m)
+
+    FluxModalBottomSheet(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(26.dp),
-        title = {
-            TransparentDialogSystemBars()
-            Text(stringResource(R.string.trigger_add_extra))
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 20.dp, end = 20.dp, bottom = navBarBottom + 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.trigger_add_extra),
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = stringResource(R.string.cond_type_section),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     autoTypes.forEach { t ->
+                        val isSel = selectedType == t
                         TonalFilterChip(
-                            selected = selectedType == t,
+                            selected = isSel,
                             onClick = {
-                                HapticEngine.click(view)
-                                selectedType = t
+                                if (!isSel) {
+                                    HapticEngine.click(view)
+                                    selectedType = t
+                                    stateOn = true
+                                    targetName = ""
+                                    btCandidates = emptyList()
+                                }
                             },
-                            label = { Text(triggerTypeLabel(t)) }
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = triggerTypeIcon(t),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = triggerTypeLabel(t),
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            },
+                            modifier = Modifier.testTag("extra_cond_chip_${t.name.lowercase()}")
                         )
                     }
                 }
+            }
 
-                if (selectedType != TriggerType.TIME) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+            // Dynamic semantic parameter card
+            Surface(
+                shape = RoundedCornerShape(22.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                AnimatedContent(
+                    targetState = selectedType,
+                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    label = "extraCondParams"
+                ) { type ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = if (stateOn) stringResource(R.string.trigger_state_on) else stringResource(R.string.trigger_state_off),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Switch(
-                            checked = stateOn,
-                            onCheckedChange = {
-                                HapticEngine.toggle(view, it)
-                                stateOn = it
-                            }
-                        )
-                    }
-                }
-
-                when (selectedType) {
-                    TriggerType.APP -> {
-                        FilledTonalButton(
-                            onClick = { showAppPicker = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                if (pkgs.isEmpty()) stringResource(R.string.trigger_pick_apps)
-                                else "${stringResource(R.string.trigger_pick_apps)} (${pkgs.size})"
-                            )
-                        }
-                    }
-                    TriggerType.WIFI -> {
-                        TonalTextField(
-                            value = targetName,
-                            onValueChange = { targetName = it },
-                            placeholder = { Text(stringResource(R.string.trigger_wifi_ssid_hint)) },
-                            singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    TriggerType.BLUETOOTH -> {
-                        TonalTextField(
-                            value = targetName,
-                            onValueChange = { targetName = it },
-                            placeholder = { Text(stringResource(R.string.trigger_bt_name_hint)) },
-                            singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    TriggerType.BATTERY -> {
-                        Text(
-                            text = if (stateOn) {
-                                stringResource(R.string.trigger_battery_above, threshold.roundToInt())
-                            } else {
-                                stringResource(R.string.trigger_battery_below, threshold.roundToInt())
-                            },
+                            text = "${stringResource(R.string.cond_config_section)} · ${triggerTypeLabel(type)}",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary
                         )
-                        Slider(
-                            value = threshold,
-                            onValueChange = { threshold = it },
-                            valueRange = 1f..100f
-                        )
+
+                        when (type) {
+                            TriggerType.APP -> {
+                                TonalSegmentedControl(
+                                    options = listOf(
+                                        true to stringResource(R.string.trigger_app_enter),
+                                        false to stringResource(R.string.trigger_app_exit)
+                                    ),
+                                    selected = stateOn,
+                                    onSelect = { stateOn = it },
+                                    tagPrefix = "extra_app_mode"
+                                )
+                                FilledTonalButton(
+                                    onClick = {
+                                        HapticEngine.click(view)
+                                        showAppPicker = true
+                                    },
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("extra_cond_pick_apps_btn")
+                                ) {
+                                    Icon(Icons.Rounded.Apps, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = if (pkgs.isEmpty()) {
+                                            stringResource(R.string.trigger_pick_apps)
+                                        } else {
+                                            stringResource(R.string.trigger_selected_apps, pkgs.size, pkgs.take(2).joinToString(", "))
+                                        },
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+
+                            TriggerType.CHARGING -> {
+                                TonalSegmentedControl(
+                                    options = listOf(
+                                        true to stringResource(R.string.trigger_charging_on),
+                                        false to stringResource(R.string.trigger_charging_off)
+                                    ),
+                                    selected = stateOn,
+                                    onSelect = { stateOn = it },
+                                    tagPrefix = "extra_charging_mode"
+                                )
+                            }
+
+                            TriggerType.SCREEN -> {
+                                TonalSegmentedControl(
+                                    options = listOf(
+                                        true to stringResource(R.string.cond_screen_on),
+                                        false to stringResource(R.string.cond_screen_off)
+                                    ),
+                                    selected = stateOn,
+                                    onSelect = { stateOn = it },
+                                    tagPrefix = "extra_screen_mode"
+                                )
+                            }
+
+                            TriggerType.WIFI -> {
+                                TonalSegmentedControl(
+                                    options = listOf(
+                                        true to stringResource(R.string.cond_connected),
+                                        false to stringResource(R.string.cond_disconnected)
+                                    ),
+                                    selected = stateOn,
+                                    onSelect = { stateOn = it },
+                                    tagPrefix = "extra_wifi_mode"
+                                )
+                                if (advancedMode) {
+                                    TonalTextField(
+                                        value = targetName,
+                                        onValueChange = { targetName = it },
+                                        placeholder = { Text(stringResource(R.string.trigger_wifi_ssid_hint)) },
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(16.dp),
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    FilledTonalButton(
+                                        onClick = {
+                                            HapticEngine.click(view)
+                                            scope.launch {
+                                                val ssid = onDetectWifi()
+                                                if (ssid.isNotEmpty()) {
+                                                    targetName = ssid
+                                                    onShowMessage("Wi-Fi: $ssid")
+                                                } else {
+                                                    onShowMessage(ctx.getString(R.string.cond_wifi_not_connected))
+                                                }
+                                            }
+                                        },
+                                        shape = RoundedCornerShape(16.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(Icons.Rounded.Wifi, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(stringResource(R.string.trigger_wifi_detect))
+                                    }
+                                }
+                            }
+
+                            TriggerType.BLUETOOTH -> {
+                                TonalSegmentedControl(
+                                    options = listOf(
+                                        true to stringResource(R.string.cond_connected),
+                                        false to stringResource(R.string.cond_disconnected)
+                                    ),
+                                    selected = stateOn,
+                                    onSelect = { stateOn = it },
+                                    tagPrefix = "extra_bt_mode"
+                                )
+                                if (advancedMode) {
+                                    TonalTextField(
+                                        value = targetName,
+                                        onValueChange = { targetName = it },
+                                        placeholder = { Text(stringResource(R.string.trigger_bt_name_hint)) },
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(16.dp),
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    FilledTonalButton(
+                                        onClick = {
+                                            HapticEngine.click(view)
+                                            scope.launch {
+                                                val list = onDetectBt()
+                                                when {
+                                                    list.isEmpty() -> {
+                                                        btCandidates = emptyList()
+                                                        onShowMessage(ctx.getString(R.string.cond_bt_none_detected))
+                                                    }
+                                                    list.size == 1 -> {
+                                                        btCandidates = emptyList()
+                                                        targetName = list[0]
+                                                        onShowMessage(list[0])
+                                                    }
+                                                    else -> btCandidates = list
+                                                }
+                                            }
+                                        },
+                                        shape = RoundedCornerShape(16.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(Icons.Rounded.Bluetooth, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(stringResource(R.string.trigger_bt_detect))
+                                    }
+                                    if (btCandidates.isNotEmpty()) {
+                                        FlowRow(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            btCandidates.forEach { dev ->
+                                                TonalFilterChip(
+                                                    selected = targetName == dev,
+                                                    onClick = {
+                                                        HapticEngine.click(view)
+                                                        targetName = dev
+                                                    },
+                                                    label = { Text(dev, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            TriggerType.BATTERY -> {
+                                TonalSegmentedControl(
+                                    options = listOf(
+                                        true to stringResource(R.string.cond_battery_gte),
+                                        false to stringResource(R.string.cond_battery_lte)
+                                    ),
+                                    selected = stateOn,
+                                    onSelect = { stateOn = it },
+                                    tagPrefix = "extra_battery_mode"
+                                )
+                                ExpressivePercentSlider(
+                                    value = threshold.coerceIn(1, 100),
+                                    onValueChange = { threshold = it.coerceIn(1, 100) },
+                                    leadingIcon = Icons.Rounded.BatteryStd,
+                                    contentDescription = triggerTypeLabel(TriggerType.BATTERY)
+                                )
+                            }
+
+                            TriggerType.HEADSET -> {
+                                TonalSegmentedControl(
+                                    options = listOf(
+                                        true to stringResource(R.string.trigger_headset_on),
+                                        false to stringResource(R.string.trigger_headset_off)
+                                    ),
+                                    selected = stateOn,
+                                    onSelect = { stateOn = it },
+                                    tagPrefix = "extra_headset_mode"
+                                )
+                            }
+
+                            TriggerType.ORIENTATION -> {
+                                TonalSegmentedControl(
+                                    options = listOf(
+                                        true to stringResource(R.string.trigger_orient_land),
+                                        false to stringResource(R.string.trigger_orient_port)
+                                    ),
+                                    selected = stateOn,
+                                    onSelect = { stateOn = it },
+                                    tagPrefix = "extra_orient_mode"
+                                )
+                            }
+
+                            TriggerType.TIME -> {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    TimeSlotCard(
+                                        label = stringResource(R.string.cond_time_start),
+                                        value = formatHm(startHour, startMinute),
+                                        onClick = {
+                                            HapticEngine.click(view)
+                                            pickingStartTime = true
+                                        },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .testTag("extra_time_start_btn")
+                                    )
+                                    TimeSlotCard(
+                                        label = stringResource(R.string.cond_time_end),
+                                        value = formatHm(endHour, endMinute),
+                                        onClick = {
+                                            HapticEngine.click(view)
+                                            pickingStartTime = false
+                                        },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .testTag("extra_time_end_btn")
+                                    )
+                                }
+                                val isOvernight = (startHour * 60 + startMinute) > (endHour * 60 + endMinute)
+                                if (isOvernight) {
+                                    Text(
+                                        text = "${stringResource(R.string.cond_time_overnight)} · ${formatHm(startHour, startMinute)} – ${formatHm(endHour, endMinute)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    listOf(
+                                        Triple(23, 0, Pair(7, 0)),
+                                        Triple(9, 0, Pair(18, 0)),
+                                        Triple(12, 0, Pair(14, 0))
+                                    ).forEach { (sh, sm, endPair) ->
+                                        val label = "${formatHm(sh, sm)}-${formatHm(endPair.first, endPair.second)}"
+                                        TonalAssistChip(
+                                            onClick = {
+                                                HapticEngine.click(view)
+                                                startHour = sh
+                                                startMinute = sm
+                                                endHour = endPair.first
+                                                endMinute = endPair.second
+                                            },
+                                            label = { Text(label) }
+                                        )
+                                    }
+                                }
+                            }
+
+                            TriggerType.MANUAL -> Unit
+                        }
                     }
-                    TriggerType.TIME -> {
-                        TonalTextField(
-                            value = targetName,
-                            onValueChange = { targetName = it },
-                            placeholder = { Text(stringResource(R.string.trigger_time_hint)) },
-                            singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    else -> Unit
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    HapticEngine.confirm(view)
-                    onAdd(
-                        RuleCondition(
-                            type = selectedType,
-                            stateOn = stateOn,
-                            pkgs = pkgs,
-                            targetName = targetName.trim(),
-                            threshold = threshold.roundToInt()
-                        )
-                    )
-                }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(stringResource(R.string.btn_confirm))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.btn_cancel))
+                FilledTonalButton(
+                    onClick = {
+                        HapticEngine.click(view)
+                        onDismiss()
+                    },
+                    shape = CircleShape,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .testTag("extra_cond_cancel_btn")
+                ) {
+                    Text(stringResource(R.string.btn_cancel))
+                }
+                Button(
+                    onClick = {
+                        if (selectedType == TriggerType.APP && pkgs.isEmpty()) {
+                            HapticEngine.reject(view)
+                            onShowMessage(ctx.getString(R.string.cond_app_empty_hint))
+                            return@Button
+                        }
+                        HapticEngine.confirm(view)
+                        val resolvedTarget = if (selectedType == TriggerType.TIME) {
+                            "${formatHm(startHour, startMinute)}-${formatHm(endHour, endMinute)}"
+                        } else {
+                            targetName.trim()
+                        }
+                        onAdd(
+                            RuleCondition(
+                                type = selectedType,
+                                stateOn = stateOn,
+                                pkgs = pkgs,
+                                targetName = resolvedTarget,
+                                threshold = threshold.coerceIn(1, 100)
+                            )
+                        )
+                    },
+                    shape = CircleShape,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .testTag("extra_cond_confirm_btn")
+                ) {
+                    Text(stringResource(R.string.cond_add_btn))
+                }
             }
         }
-    )
+    }
+
+    val isStart = pickingStartTime
+    if (isStart != null) {
+        val pickerState = rememberTimePickerState(
+            initialHour = if (isStart) startHour else endHour,
+            initialMinute = if (isStart) startMinute else endMinute,
+            is24Hour = true
+        )
+        AlertDialog(
+            onDismissRequest = { pickingStartTime = null },
+            shape = RoundedCornerShape(26.dp),
+            title = {
+                TransparentDialogSystemBars()
+                Text(
+                    stringResource(if (isStart) R.string.cond_time_start else R.string.cond_time_end),
+                    style = MaterialTheme.typography.titleMedium
+                )
+            },
+            text = {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    TimePicker(state = pickerState)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        HapticEngine.confirm(view)
+                        if (isStart) {
+                            startHour = pickerState.hour
+                            startMinute = pickerState.minute
+                        } else {
+                            endHour = pickerState.hour
+                            endMinute = pickerState.minute
+                        }
+                        pickingStartTime = null
+                    }
+                ) {
+                    Text(stringResource(R.string.btn_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pickingStartTime = null }) {
+                    Text(stringResource(R.string.btn_cancel))
+                }
+            }
+        )
+    }
 
     if (showAppPicker) {
         AppPickerSheet(
@@ -906,6 +1332,65 @@ fun ExtraConditionDialog(
             }
         )
     }
+}
+
+@Composable
+private fun TimeSlotCard(
+    label: String,
+    value: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        modifier = modifier
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Schedule,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        fontFeatureSettings = "tnum"
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+    }
+}
+
+fun triggerTypeIcon(type: TriggerType): ImageVector = when (type) {
+    TriggerType.MANUAL -> Icons.Rounded.Tune
+    TriggerType.APP -> Icons.Rounded.Apps
+    TriggerType.CHARGING -> Icons.Rounded.BatteryChargingFull
+    TriggerType.SCREEN -> Icons.Rounded.Smartphone
+    TriggerType.WIFI -> Icons.Rounded.Wifi
+    TriggerType.BLUETOOTH -> Icons.Rounded.Bluetooth
+    TriggerType.BATTERY -> Icons.Rounded.BatteryStd
+    TriggerType.HEADSET -> Icons.Rounded.Headphones
+    TriggerType.ORIENTATION -> Icons.Rounded.ScreenRotation
+    TriggerType.TIME -> Icons.Rounded.Schedule
 }
 
 @Composable
